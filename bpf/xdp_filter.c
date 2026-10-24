@@ -115,13 +115,24 @@ struct {
 	__type(value, __u8);
 } allowlist SEC(".maps");
 
-/* Heavy hitters: single never-seen sources flooding the server; populated by userspace. */
+/* Heavy hitters: single never-seen sources flooding the server; populated by userspace.
+ * rate_pps = 0 drops the source outright; > 0 rate-limits it (a possible shared address).
+ * Entries expire on their own, so a crashed controller can't leave an address blocked forever. */
+struct block_val {
+	__u32 rate_pps;
+	__u32 pad;
+	__u64 tokens;
+	__u64 last_ns;
+	__u64 expires_ns;
+	__u64 hits;
+};
+
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__uint(max_entries, 1024);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 	__type(key, struct lpm_v4);
-	__type(value, __u64);           /* drop counter */
+	__type(value, struct block_val);
 } blocklist SEC(".maps");
 
 /* Sources that completed handshakes in calm times; populated by userspace. */
@@ -142,21 +153,26 @@ struct {
 
 /* ---- helpers --------------------------------------------------------------- */
 
-static __always_inline int token_bucket_allow(struct rule_val *r, __u64 now)
+static __always_inline int tb_allow(__u32 rate_pps, __u64 *tokens_p, __u64 *last_p, __u64 now)
 {
 	/* Approximate under concurrency (no lock); good enough for a rate limit. */
-	__u64 elapsed = now - r->last_ns;
-	__u64 cap = (__u64)r->rate_pps * 1000000000ULL;   /* one second of burst */
-	__u64 tokens = r->tokens + elapsed * r->rate_pps;
+	__u64 elapsed = now - *last_p;
+	__u64 cap = (__u64)rate_pps * 1000000000ULL;   /* one second of burst */
+	__u64 tokens = *tokens_p + elapsed * rate_pps;
 	if (tokens > cap)
 		tokens = cap;
-	r->last_ns = now;
+	*last_p = now;
 	if (tokens >= 1000000000ULL) {
-		r->tokens = tokens - 1000000000ULL;
+		*tokens_p = tokens - 1000000000ULL;
 		return 1;
 	}
-	r->tokens = tokens;
+	*tokens_p = tokens;
 	return 0;
+}
+
+static __always_inline int token_bucket_allow(struct rule_val *r, __u64 now)
+{
+	return tb_allow(r->rate_pps, &r->tokens, &r->last_ns, now);
 }
 
 static __always_inline struct rule_val *
@@ -241,7 +257,10 @@ int shieldwall_xdp(struct xdp_md *ctx)
 	c->pkts++;
 	c->bytes += len;
 
-	if (is_frag && (ip->protocol == IPPROTO_TCP || ip->protocol == IPPROTO_UDP)) {
+	__u32 saddr = ip->saddr;
+	int is_l4 = ip->protocol == IPPROTO_TCP || ip->protocol == IPPROTO_UDP;
+
+	if (is_frag && is_l4) {
 		c->frag++;
 		if (ip->protocol == IPPROTO_UDP)
 			c->udp++;
@@ -274,12 +293,9 @@ int shieldwall_xdp(struct xdp_md *ctx)
 			__u64 one = 1;
 			bpf_map_update_elem(&udp_sport_count, &sport, &one, BPF_ANY);
 		}
-	} else {
-		return XDP_PASS;
-	}
+	}   /* other protocols (ICMP, ...) carry no ports but are still counted and can be blocklisted */
 
-	/* per-source counters (count first, drop later: the detector must keep seeing the attack) */
-	__u32 saddr = ip->saddr;
+	/* per-source counters for every protocol (count first, drop later: the detector must keep seeing it) */
 	struct src_stat *s = bpf_map_lookup_elem(&src_count, &saddr);
 	if (s) {
 		__sync_fetch_and_add(&s->pkts, 1);
@@ -300,16 +316,27 @@ int shieldwall_xdp(struct xdp_md *ctx)
 		return XDP_PASS;
 	}
 
-	/* heavy-hitter blocklist (any protocol) */
-	__u64 *bl = bpf_map_lookup_elem(&blocklist, &lk);
+	/* heavy-hitter blocklist: every protocol, checked before any port rule */
+	struct block_val *bl = bpf_map_lookup_elem(&blocklist, &lk);
 	if (bl) {
-		__sync_fetch_and_add(bl, 1);
-		__u32 *enf = bpf_map_lookup_elem(&config, &zero);
-		if (!enf || *enf) {
-			c->dropped++;
-			return XDP_DROP;
+		__u64 now = bpf_ktime_get_ns();
+		if (!bl->expires_ns || now <= bl->expires_ns) {
+			int drop = 1;
+			if (bl->rate_pps)
+				drop = !tb_allow(bl->rate_pps, &bl->tokens, &bl->last_ns, now);
+			if (!drop)
+				return XDP_PASS;              /* within the shared address's fair share */
+			__sync_fetch_and_add(&bl->hits, 1);
+			__u32 *enf = bpf_map_lookup_elem(&config, &zero);
+			if (!enf || *enf) {
+				c->dropped++;
+				return XDP_DROP;
+			}
 		}
 	}
+
+	if (!is_l4)
+		return XDP_PASS;
 
 	int untrusted = bpf_map_lookup_elem(&trusted, &saddr) == 0;
 	struct rule_val *r = lookup_rule(ip->protocol, sport, dport, is_syn, untrusted, is_frag);

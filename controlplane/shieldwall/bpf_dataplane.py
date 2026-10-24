@@ -54,7 +54,7 @@ class BPFDataPlane:
         self.prev_src: dict[int, dict] = {}
         self.prev_sport: dict[int, int] = {}
         self.written: dict[bytes, int] = {}
-        self.blocked: set[tuple[int, int]] = set()
+        self.blocked: dict[tuple[int, int], int] = {}
         self.t = 0
 
     def attach(self, enforce: bool = True) -> None:
@@ -82,18 +82,24 @@ class BPFDataPlane:
         flags = (RULE_SYN_ONLY if r.syn_only else 0) | (RULE_UNTRUSTED if r.untrusted_only else 0) |             (RULE_FRAG if r.frag_only else 0)
         return struct.pack("<BBHHH", r.proto, flags, r.sport, r.dport, 0)
 
-    def sync_blocklist(self, rules: list[Rule]) -> None:
-        """Source rules (heavy hitters) live in the LPM blocklist map, not the port rules map."""
-        want = {(bin(r.src_mask).count("1"), r.src) for r in rules if r.src_mask}
-        for plen, addr in want - self.blocked:
+    def sync_blocklist(self, rules: list[Rule], ttl_s: int = 60) -> None:
+        """Source rules (heavy hitters) live in the LPM blocklist map, with their own expiry in the kernel."""
+        want = {(bin(r.src_mask).count("1"), r.src): r for r in rules if r.src_mask}
+        now = time.monotonic_ns()
+        for (plen, addr), r in want.items():
+            if (plen, addr) in self.blocked and self.blocked[(plen, addr)] - now > ttl_s * 500_000_000:
+                continue
+            expires = now + ttl_s * 1_000_000_000
             key = struct.pack("<I", plen) + struct.pack(">I", addr)
-            _bpftool("map", "update", "name", "blocklist", "key", *_hex(key), "value", *_hex(struct.pack("<Q", 0)))
-        for plen, addr in self.blocked - want:
+            val = struct.pack("<IIQQQQ", int(r.rate_pps) if r.action == "rate_limit" else 0, 0, 0, now, expires, 0)
+            _bpftool("map", "update", "name", "blocklist", "key", *_hex(key), "value", *_hex(val))
+            self.blocked[(plen, addr)] = expires
+        for plen, addr in list(self.blocked.keys() - want.keys()):
             _bpftool("map", "delete", "name", "blocklist", "key", *_hex(struct.pack("<I", plen) + struct.pack(">I", addr)))
-        self.blocked = want
+            del self.blocked[(plen, addr)]
 
     def sync_rules(self, rules: list[Rule], ttl_s: int) -> None:
-        self.sync_blocklist(rules)
+        self.sync_blocklist(rules, ttl_s)
         rules = [r for r in rules if not r.src_mask]
         want = {self._rule_key(r): r for r in rules}
         now = time.monotonic_ns()  # bpf_ktime_get_ns() is CLOCK_MONOTONIC
@@ -168,6 +174,7 @@ class BPFDataPlane:
             top_talkers=[(ip_str(k), v) for k, v in cms.top(5)],
             frag_share=delta.get("frag", 0) / pps if pps else 0.0,
             amp_ports=sorted((p for p, n in amp.items() if pps and n / pps >= 0.05), key=lambda p: -amp[p]),
+            amp_ports_seen=sorted((p for p, n in amp.items() if pps and n / pps >= 0.005), key=lambda p: -amp[p]),
         )
         heavy = cms.top(1)
         if heavy and pps:
@@ -177,28 +184,50 @@ class BPFDataPlane:
         return f, trust_candidates
 
 
+class LiveLoop:
+    """One control-loop tick against the real kernel maps: read -> detect -> classify -> act -> sync."""
+
+    def __init__(self, dp: BPFDataPlane, cfg: MitigationConfig):
+        from .engine import TRUST_AFTER
+
+        self.dp, self.cfg, self.trust_after = dp, cfg, TRUST_AFTER
+        self.det, self.cls, self.ctl = Detector(), Classifier(), MitigationController(cfg)
+        self.seen = BloomFilter(200_000)
+        self.calm_seen: dict[int, int] = {}
+
+    def tick(self):
+        f, candidates = self.dp.read_features(self.seen)
+        v = self.det.update(f)
+        c = self.cls.classify(f) if v.anomalous else None
+        actions = self.ctl.step(f.t, v.anomalous, c, f, v.baseline_pps, {}, {})
+        self.dp.sync_rules(self.ctl.enforced_rules(), self.cfg.rule_ttl)
+        if not v.anomalous and not any(v.votes.values()):
+            self.cls.learn(f)
+            for addr in candidates:  # only learned in calm windows, never during an attack
+                self.seen.add(struct.unpack(">I", struct.pack("<I", addr))[0])
+                n = self.calm_seen.get(addr, 0) + 1
+                self.calm_seen[addr] = n
+                if n == self.trust_after:  # trusted only after several separate calm seconds
+                    self.dp.trust(addr)
+            if len(self.calm_seen) > 200_000:
+                self.calm_seen.clear()
+        return f, v, c, actions
+
+
 def run_live(iface: str, dry_run: bool = False, obj: str = "bpf/xdp_filter.o") -> None:
     dp = BPFDataPlane(iface, obj)
     cfg = MitigationConfig(dry_run=dry_run)
     dp.attach(enforce=not dry_run)
     for cidr in cfg.allowlist:
         dp.allow(cidr)
-    det, cls, ctl, seen = Detector(), Classifier(), MitigationController(cfg), BloomFilter(200_000)
+    loop = LiveLoop(dp, cfg)
     print(f"ShieldWall attached to {iface} ({'dry-run' if dry_run else 'enforcing'}). Ctrl+C to stop.")
     try:
         while True:
             time.sleep(1)
-            f, candidates = dp.read_features(seen)
-            v = det.update(f)
-            c = cls.classify(f) if v.anomalous else None
-            for a in ctl.step(f.t, v.anomalous, c, f, v.baseline_pps, {}, {}):
+            f, v, c, actions = loop.tick()
+            for a in actions:
                 print(f"[t={f.t}] {a.kind}: {a.detail}")
-            dp.sync_rules(ctl.enforced_rules(), cfg.rule_ttl)
-            if not v.anomalous and not any(v.votes.values()):
-                cls.learn(f)
-                for addr in candidates:  # only learned in calm windows, never during an attack
-                    dp.trust(addr)
-                    seen.add(struct.unpack(">I", struct.pack("<I", addr))[0])
             print(f"t={f.t} pps={f.pps:,.0f} z={v.zscore:.1f} cusum={v.cusum:.1f} "
                   f"{'ALERT ' + c.label if c else 'ok'}")
     except KeyboardInterrupt:

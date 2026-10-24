@@ -62,6 +62,8 @@ class Features:
     top_src: int | None = None                           # that sender (Count-Min Sketch heavy hitter)
     top_src_new: bool = False                            # ...and it was never seen in calm traffic
     amp_ports: list[int] = field(default_factory=list)   # every amplification port with >=5% of traffic
+    amp_ports_seen: list[int] = field(default_factory=list)  # every amplification port with >=0.5% (all get blocked)
+    top_src_to_service: float = 0.0                      # share of the top sender's traffic aimed at the game ports
 
 
 @dataclass

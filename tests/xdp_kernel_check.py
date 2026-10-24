@@ -91,6 +91,39 @@ def main() -> None:
     assert hh_dropped >= 2000 and hh_passed >= 300
     result.update(heavy_hitter_sent=2000, heavy_hitter_dropped=hh_dropped, others_passed=hh_passed)
 
+    # the blocklist covers every protocol: a ping flood from the same host is dropped too
+    before = stats()
+    send_raw("from scapy.all import ICMP\n"
+             f"pk = [Ether(dst='{MAC}') / IP(src='45.30.0.9', dst='192.168.77.1') / ICMP() / Raw(b'x' * 64) for i in range(500)]")
+    after = stats()
+    icmp_dropped = after["dropped"] - before["dropped"]
+    print(f"icmp flood    : blocklist dropped {icmp_dropped} of 500 pings from 45.30.0.9")
+    assert icmp_dropped >= 500
+    result.update(icmp_sent=500, icmp_dropped=icmp_dropped)
+
+    # a possible shared address is rate-limited to a fair share instead of blocked
+    dp.sync_rules([Rule(4, "rate_limit", 0, src=ip_int("45.40.0.7"), src_mask=0xFFFFFFFF, rate_pps=100)], ttl_s=60)
+    before = stats()
+    send_raw(f"pk = [Ether(dst='{MAC}') / IP(src='45.40.0.7', dst='192.168.77.1') / TCP(sport=40000 + i % 1000, dport=25565, flags='A') for i in range(2000)]")
+    after = stats()
+    shared_passed = (after["pkts"] - before["pkts"]) - (after["dropped"] - before["dropped"])
+    print(f"shared address: rate limit passed {shared_passed} of 2000 packets (fair share ~100/s plus burst)")
+    assert 50 <= shared_passed < 1000
+    result.update(shared_sent=2000, shared_passed=shared_passed)
+
+    # blocklist entries expire inside the kernel: nothing stays blocked if the controller dies
+    dp.blocked.clear()
+    dp.sync_rules([Rule(5, "drop", 0, src=ip_int("45.50.0.3"), src_mask=0xFFFFFFFF)], ttl_s=1)
+    import time
+    time.sleep(2.5)
+    before = stats()
+    send_raw(f"pk = [Ether(dst='{MAC}') / IP(src='45.50.0.3', dst='192.168.77.1') / UDP(sport=5000, dport=19132) / Raw(b'x' * 100) for i in range(200)]")
+    after = stats()
+    expired_dropped = after["dropped"] - before["dropped"]
+    print(f"expiry        : {expired_dropped} of 200 packets dropped after the entry expired (should be 0)")
+    assert expired_dropped == 0
+    result["dropped_after_expiry"] = expired_dropped
+
     dp.set_enforce(False)  # dry-run: count hits, drop nothing
     before = stats()
     send(1000, 389, 40000, 500, 1200, "45.20")

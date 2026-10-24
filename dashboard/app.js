@@ -292,7 +292,7 @@ const LEVEL_HINT = {
   packet: "Every packet: was each dropped packet really attack traffic, and how much attack traffic was dropped?",
   incident: "Each trial as a whole: was the attack caught at all, and was any non-attack ever blocked?",
 };
-const NICE = { cldap: "CLDAP amplification", dns: "DNS amplification", ntp: "NTP amplification", syn: "SYN flood",
+const NICE = { cldap: "CLDAP amp.", dns: "DNS amp.", ntp: "NTP amp.", syn: "SYN flood",
   udp: "UDP flood", flash_crowd: "Flash crowd", none: "Quiet traffic" };
 
 function showLevel(level) {
@@ -317,15 +317,17 @@ async function loadResults() {
   const S = results.results || [];
   const K = results.kernel_test;
   const L = results.llm_eval;
-  const R = [...(results.replay || []), ...(results.replay_cic || [])];
+  const tag = (rows, held) => (rows || []).map((r) => ({ ...r, held }));
+  const R = [...tag(results.replay, false), ...tag(results.replay_cic, false),
+             ...tag(results.heldout_replay, true), ...tag(results.heldout_replay_cic, true)];
   if (R.length) {
     $("real-table").innerHTML = "<tr><th>Attack data</th><th>Inside</th><th>Identified as</th><th>Detected</th><th>Blocked</th><th>Attack dropped once blocking</th><th>Real traffic dropped</th><th>Players served (without → with)</th></tr>" +
       R.map((r) => {
         const c = r.capture, w = r.with;
         const src = c.file.includes("archive.zip") ? "CIC-DDoS2019 " + c.file.split(":")[1] : "StopDDoS " + c.file;
-        return `<tr><td>${esc(src)}</td><td class="num">${fmt(c.native_pps)} pps · ${fmt(c.unique_sources)} source${c.unique_sources === 1 ? "" : "s"}${c.fragment_share ? ` · ${(100 * c.fragment_share).toFixed(0)}% fragments` : ""}</td>` +
+        return `<tr><td>${esc(src)}${r.held ? ' <span class="sim-tag held">held-out</span>' : ""}</td><td class="num">${fmt(c.native_pps)} pps · ${fmt(c.unique_sources)} source${c.unique_sources === 1 ? "" : "s"}${c.fragment_share ? ` · ${(100 * c.fragment_share).toFixed(0)}% fragments` : ""}</td>` +
           `<td>${esc(r.label)}</td><td class="num">${w.detect_s ?? "-"} s</td><td class="num">${w.mitigate_s ?? "-"} s</td>` +
-          `<td class="num good-txt">${w.attack_dropped_after_block_pct.toFixed(1)}%</td><td class="num">${w.legit_dropped_pct.toFixed(3)}%</td>` +
+          `<td class="num ${w.mitigate_s ? "good-txt" : "bad-txt"}">${w.mitigate_s ? w.attack_dropped_after_block_pct.toFixed(1) + "%" : "not blocked"}</td><td class="num">${w.legit_dropped_pct.toFixed(3)}%</td>` +
           `<td class="num">${r.without.served_pct.toFixed(1)}% → <span class="good-txt">${w.served_pct.toFixed(1)}%</span></td></tr>`;
       }).join("");
     $("real-findings").innerHTML = [
@@ -402,7 +404,9 @@ async function loadResults() {
       ${K.fragments_sent ? `<div><b>${fmt(K.fragments_dropped)} / ${fmt(K.fragments_sent)}</b><span>IP fragments (no ports) dropped by the fragment rule</span></div>
       <div><b>${fmt(K.heavy_hitter_dropped)} / ${fmt(K.heavy_hitter_sent)}</b><span>packets from one flooding host dropped by the blocklist, ${fmt(K.others_passed)} others passed</span></div>` : ""}
     </div>
-    <p class="hint">Real packets sent with scapy through the XDP program on Linux ${esc(K.kernel)}. Identified as: <b>${esc(K.classified_as)}</b>.</p>
+    ${(results.kernel_replay || []).map((k) => `<div class="quote"><small>Real capture through the real kernel: ${esc(k.capture)}</small>
+      Live loop identified <b>${esc(k.classified_as)}</b> in ${k.detect_s} s; the kernel then dropped <b>${fmt(k.capture_packets_dropped)} of ${fmt(k.capture_packets_sent)}</b> capture packets and ${k.player_packets_dropped} of ${k.player_packets_sent} player packets.</div>`).join("")}
+    <p class="hint">Packets sent with scapy through the XDP program on Linux ${esc(K.kernel)}.</p>
     <span class="pass">Kernel test passed</span>`;
   } else {
     $("kernel").innerHTML = `<p class="hint">Run <code>sudo bash tests/xdp_kernel_test.sh</code> on Linux to fill this in.</p>`;

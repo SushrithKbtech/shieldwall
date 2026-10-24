@@ -1,0 +1,263 @@
+[
+  {
+    "capture": {
+      "file": "amp.dns.RRSIG.fragmented.pcap",
+      "victim": "10.10.10.10",
+      "packets": 4397,
+      "seconds": 29.746,
+      "native_pps": 148,
+      "unique_sources": 237,
+      "avg_size": 442,
+      "udp_share": 0.295,
+      "syn_share": 0.065,
+      "fragment_share": 0.165,
+      "top_source_ports": [
+        {
+          "port": 53,
+          "service": "DNS",
+          "share": 0.123
+        },
+        {
+          "port": 59763,
+          "service": null,
+          "share": 0.002
+        },
+        {
+          "port": 43194,
+          "service": null,
+          "share": 0.002
+        },
+        {
+          "port": 57548,
+          "service": null,
+          "share": 0.0
+        }
+      ]
+    },
+    "label": "not detected",
+    "rules": [],
+    "with": {
+      "detect_s": null,
+      "mitigate_s": null,
+      "served_pct": 100.00080940000288,
+      "attack_dropped_pct": 1.5381768058506743e-12,
+      "attack_dropped_after_block_pct": 0.0,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 30,
+        "precision": 1.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": ""
+  },
+  {
+    "capture": {
+      "file": "amp.UDP.snmp.src161.pcapng",
+      "victim": "10.10.10.10",
+      "packets": 4373,
+      "seconds": 0.023,
+      "native_pps": 186108,
+      "unique_sources": 4276,
+      "avg_size": 227,
+      "udp_share": 0.933,
+      "syn_share": 0.0,
+      "fragment_share": 0.0,
+      "top_source_ports": [
+        {
+          "port": 161,
+          "service": null,
+          "share": 0.933
+        }
+      ]
+    },
+    "label": "UDP flood",
+    "rules": [
+      "RATE-LIMIT UDP from unknown sources to 606 pps"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 94.76498291427905,
+      "attack_dropped_pct": 86.70431053912942,
+      "attack_dropped_after_block_pct": 92.89747557763832,
+      "legit_dropped_pct": 0.28197845577152686,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 31.903086423995227
+    },
+    "explanation": "Your server was attacked from about 1,473 sources using a UDP flood at up to 188,251 packets/s. ShieldWall blocked it 3 seconds after it started. 97% of real player traffic got through during the attack. No action needed from you."
+  },
+  {
+    "capture": {
+      "file": "amp.UDP.isakmp.pcap",
+      "victim": "10.10.10.10",
+      "packets": 3984,
+      "seconds": 0.409,
+      "native_pps": 9744,
+      "unique_sources": 2767,
+      "avg_size": 232,
+      "udp_share": 1.0,
+      "syn_share": 0.0,
+      "fragment_share": 0.0,
+      "top_source_ports": [
+        {
+          "port": 4500,
+          "service": null,
+          "share": 1.0
+        }
+      ]
+    },
+    "label": "UDP flood",
+    "rules": [
+      "RATE-LIMIT UDP from unknown sources to 606 pps"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 99.10098677675121,
+      "attack_dropped_pct": 87.53798714543275,
+      "attack_dropped_after_block_pct": 93.79070051296387,
+      "legit_dropped_pct": 0.26539809990664454,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": "Your server was attacked from about 2,075 sources using a UDP flood at up to 11,887 packets/s. ShieldWall blocked it 3 seconds after it started. 99% of real player traffic got through during the attack. No action needed from you."
+  },
+  {
+    "capture": {
+      "file": "amp.TCP.reflection.SYNACK.pcap",
+      "victim": "10.10.10.10",
+      "packets": 7996,
+      "seconds": 0.147,
+      "native_pps": 54465,
+      "unique_sources": 7055,
+      "avg_size": 50,
+      "udp_share": 0.021,
+      "syn_share": 0.0,
+      "fragment_share": 0.0,
+      "top_source_ports": [
+        {
+          "port": 61581,
+          "service": null,
+          "share": 0.009
+        },
+        {
+          "port": 53057,
+          "service": null,
+          "share": 0.009
+        },
+        {
+          "port": 161,
+          "service": null,
+          "share": 0.002
+        },
+        {
+          "port": 50013,
+          "service": null,
+          "share": 0.0
+        }
+      ]
+    },
+    "label": "not detected",
+    "rules": [],
+    "with": {
+      "detect_s": null,
+      "mitigate_s": null,
+      "served_pct": 100.00080940000288,
+      "attack_dropped_pct": 1.3679502753161106e-12,
+      "attack_dropped_after_block_pct": 0.0,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 30,
+        "precision": 1.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": ""
+  },
+  {
+    "capture": {
+      "file": "pkt.UDP.rdm.fixedlength.pcapng",
+      "victim": "10.10.10.10",
+      "packets": 4968,
+      "seconds": 5.36,
+      "native_pps": 927,
+      "unique_sources": 11,
+      "avg_size": 1322,
+      "udp_share": 0.999,
+      "syn_share": 0.0,
+      "fragment_share": 0.0,
+      "top_source_ports": [
+        {
+          "port": 36011,
+          "service": null,
+          "share": 0.312
+        },
+        {
+          "port": 52081,
+          "service": null,
+          "share": 0.207
+        },
+        {
+          "port": 57540,
+          "service": null,
+          "share": 0.175
+        },
+        {
+          "port": 57731,
+          "service": null,
+          "share": 0.052
+        }
+      ]
+    },
+    "label": "not detected",
+    "rules": [],
+    "with": {
+      "detect_s": null,
+      "mitigate_s": null,
+      "served_pct": 100.00080940000288,
+      "attack_dropped_pct": 1.0937790444566274e-11,
+      "attack_dropped_after_block_pct": 0.0,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 30,
+        "precision": 1.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": ""
+  }
+]

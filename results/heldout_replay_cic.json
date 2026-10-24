@@ -1,0 +1,185 @@
+[
+  {
+    "capture": {
+      "file": "archive.zip:01-12/UDPLag.csv",
+      "victim": "192.168.50.1",
+      "window": "busiest 30 s, starting 2018-12-01 13:29:42",
+      "flows": 208641,
+      "packets": 655421,
+      "seconds": 30,
+      "native_pps": 21847,
+      "unique_sources": 1,
+      "udp_share": 0.0,
+      "syn_share": 0.0,
+      "fragment_share": 0.0,
+      "top_source_ports": [
+        {
+          "port": 512,
+          "service": null,
+          "share": 0.0
+        },
+        {
+          "port": 43624,
+          "service": null,
+          "share": 0.0
+        },
+        {
+          "port": 53758,
+          "service": null,
+          "share": 0.0
+        },
+        {
+          "port": 63573,
+          "service": null,
+          "share": 0.0
+        }
+      ]
+    },
+    "label": "flood from a single host (172.16.0.5)",
+    "rules": [
+      "DROP ALL from 172.16.0.5"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 100.00080940000288,
+      "attack_dropped_pct": 93.33333333333339,
+      "attack_dropped_after_block_pct": 100.0,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": "Your server was attacked from about 334 sources using a flood from a single host (172.16.0.5) at up to 23,990 packets/s. ShieldWall blocked it 3 seconds after it started. 100% of real player traffic got through during the attack. No action needed from you."
+  },
+  {
+    "capture": {
+      "file": "archive.zip:03-11/Portmap.csv",
+      "victim": "192.168.50.4",
+      "window": "busiest 30 s, starting 2018-11-03 10:01:25",
+      "flows": 185582,
+      "packets": 371810,
+      "seconds": 30,
+      "native_pps": 12394,
+      "unique_sources": 1,
+      "udp_share": 1.0,
+      "syn_share": 0.0,
+      "fragment_share": 0.0,
+      "top_source_ports": [
+        {
+          "port": 648,
+          "service": null,
+          "share": 0.327
+        },
+        {
+          "port": 1022,
+          "service": null,
+          "share": 0.001
+        },
+        {
+          "port": 567,
+          "service": null,
+          "share": 0.001
+        },
+        {
+          "port": 575,
+          "service": null,
+          "share": 0.001
+        }
+      ]
+    },
+    "label": "flood from a single host (172.16.0.5)",
+    "rules": [
+      "DROP ALL from 172.16.0.5"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 100.00080940000288,
+      "attack_dropped_pct": 93.33333333333341,
+      "attack_dropped_after_block_pct": 100.0,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": "Your server was attacked from about 334 sources using a flood from a single host (172.16.0.5) at up to 14,536 packets/s. ShieldWall blocked it 3 seconds after it started. 100% of real player traffic got through during the attack. No action needed from you."
+  },
+  {
+    "capture": {
+      "file": "archive.zip:01-12/DrDoS_SSDP.csv",
+      "victim": "192.168.50.1",
+      "window": "busiest 30 s, starting 2018-12-01 12:27:28",
+      "flows": 263892,
+      "packets": 986156,
+      "seconds": 30,
+      "native_pps": 32872,
+      "unique_sources": 1,
+      "udp_share": 1.0,
+      "syn_share": 0.0,
+      "fragment_share": 0.0,
+      "top_source_ports": [
+        {
+          "port": 50079,
+          "service": null,
+          "share": 0.007
+        },
+        {
+          "port": 32768,
+          "service": null,
+          "share": 0.003
+        },
+        {
+          "port": 672,
+          "service": null,
+          "share": 0.002
+        },
+        {
+          "port": 65529,
+          "service": null,
+          "share": 0.001
+        }
+      ]
+    },
+    "label": "flood from a single host (172.16.0.5)",
+    "rules": [
+      "DROP ALL from 172.16.0.5"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 100.00080940000288,
+      "attack_dropped_pct": 93.33333333333357,
+      "attack_dropped_after_block_pct": 100.0,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": "Your server was attacked from about 334 sources using a flood from a single host (172.16.0.5) at up to 35,015 packets/s. ShieldWall blocked it 3 seconds after it started. 100% of real player traffic got through during the attack. No action needed from you."
+  }
+]

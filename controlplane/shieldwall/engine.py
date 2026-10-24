@@ -36,7 +36,8 @@ def profile(f, samples=()) -> dict:
     }
 
 
-REBASELINE_AFTER = 30  # windows of confirmed legitimate surge before it becomes the new normal
+REBASELINE_AFTER = 30
+TRUST_AFTER = 5  # calm windows a source must appear in before it is trusted  # windows of confirmed legitimate surge before it becomes the new normal
 
 PRESETS = {
     "cldap": dict(kind="cldap", pps=200_000, ramp=2),
@@ -66,6 +67,7 @@ class Engine:
         self.lock = threading.RLock()
         self.history: deque[dict] = deque(maxlen=history)
         self.trusted: OrderedDict[int, None] = OrderedDict()
+        self.calm_seen: OrderedDict[int, int] = OrderedDict()  # calm windows each source has been seen in
 
         self.incident: dict | None = None
         self._benign = 0
@@ -156,11 +158,17 @@ class Engine:
             return point
 
     def _learn_trusted(self, window) -> None:
-        # Sources that complete TCP handshakes or talk to the game's UDP port in calm times.
-        for p in window.samples:
-            if (p.flags & ACK) or (p.proto == UDP and p.dport == MC_BEDROCK):
-                self.trusted[p.src] = None
-                self.trusted.move_to_end(p.src)
+        # Sources that complete TCP handshakes or talk to the game's UDP port, seen in TRUST_AFTER separate calm
+        # windows, so a botnet can't get itself trusted with one burst of quiet traffic.
+        for src in {p.src for p in window.samples if (p.flags & ACK) or (p.proto == UDP and p.dport == MC_BEDROCK)}:
+            n = self.calm_seen.get(src, 0) + 1
+            self.calm_seen[src] = n
+            self.calm_seen.move_to_end(src)
+            if n >= TRUST_AFTER:
+                self.trusted[src] = None
+                self.trusted.move_to_end(src)
+        while len(self.calm_seen) > 200_000:
+            self.calm_seen.popitem(last=False)
         while len(self.trusted) > 65_536:
             self.trusted.popitem(last=False)
         self.dp.trusted = set(self.trusted)

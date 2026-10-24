@@ -205,17 +205,19 @@ def write_results(results: list[dict], out_dir: str, stem: str, title: str, intr
     return md
 
 
-def main(paths: list[str], out_dir: str = "results", target: str | None = None, report: bool = False) -> list[dict]:
+def main(paths: list[str], out_dir: str = "results", target: str | None = None, report: bool = False,
+         name: str = "replay") -> list[dict]:
     os.environ.setdefault("SHIELDWALL_LLM", "template")
     results = [replay(p, target, report=report) for p in paths]
-    write_results(results, out_dir, "replay", "Replay of real DDoS captures", PCAP_INTRO)
+    write_results(results, out_dir, name, "Replay of real DDoS captures", PCAP_INTRO)
     return results
 
 
-def main_cic(path: str, members: list[str], out_dir: str = "results", report: bool = False) -> list[dict]:
+def main_cic(path: str, members: list[str], out_dir: str = "results", report: bool = False,
+             name: str = "replay_cic") -> list[dict]:
     from .cic import load_cic
 
     os.environ.setdefault("SHIELDWALL_LLM", "template")
     results = [replay(path, report=report, loaded=load_cic(path, m)) for m in members]
-    write_results(results, out_dir, "replay_cic", "Replay of CIC-DDoS2019 flow records", CIC_INTRO)
+    write_results(results, out_dir, name, "Replay of CIC-DDoS2019 flow records", CIC_INTRO)
     return results

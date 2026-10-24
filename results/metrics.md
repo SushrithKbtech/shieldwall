@@ -5,12 +5,12 @@
 | Level | Accuracy | Precision | Recall | F1 | TP / FP / FN / TN |
 |---|---|---|---|---|---|
 | Per 1 s window | 98.668% | 100% | 94.437% | 0.971 | 4,057 / 0 / 239 / 13,646 windows |
-| Per packet dropped | 97.215% | 99.998% | 96.642% | 0.983 | 271,957,604 / 5,026 / 9,449,355 / 58,052,187 packets |
+| Per packet dropped | 97.209% | 99.991% | 96.642% | 0.983 | 271,958,042 / 24,298 / 9,448,916 / 58,032,915 packets |
 | Per trial (incident) | 99.000% | 100% | 98.131% | 0.991 | 105 / 0 / 2 / 93 trials |
 
 - Attack-type classification accuracy (caught attacks): **100.0%**
 - Median time to detect: **2 s**
-- Real traffic wrongly dropped across all trials: **0.009%**
+- Real traffic wrongly dropped across all trials: **0.042%**
 
 | Scenario | Trials | Detection | Classification |
 |---|---|---|---|

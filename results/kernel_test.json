@@ -13,5 +13,10 @@
   "heavy_hitter_sent": 2000,
   "heavy_hitter_dropped": 2000,
   "others_passed": 300,
+  "icmp_sent": 500,
+  "icmp_dropped": 500,
+  "shared_sent": 2000,
+  "shared_passed": 152,
+  "dropped_after_expiry": 0,
   "dry_run_dropped": 0
 }

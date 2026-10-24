@@ -137,6 +137,7 @@ button.wide { width: 100%; margin-top: 8px; }
 
 .sim-tag { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 4px;
   background: rgb(227 169 72 / 0.18); color: var(--warn); margin-left: 6px; vertical-align: middle; }
+.sim-tag.held { background: rgb(90 169 230 / 0.18); color: var(--accent); }
 .findings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
 .findings div { background: var(--panel-2); border-radius: 10px; padding: 12px; font-size: 13px; }
 .findings b { display: block; margin-bottom: 4px; }

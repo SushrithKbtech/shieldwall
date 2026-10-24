@@ -33,7 +33,7 @@ Before you start: run `shieldwall dashboard`, open http://127.0.0.1:8000, wait 2
 
 **Saran:** The second half is Python, once a second. It reads the counters, decides if there's an attack and what kind, and writes a blocking rule back into the kernel. The two halves only talk through shared tables called BPF maps.
 
-**Saran:** And this runs on a real kernel. Our kernel test loads the program on a Linux network interface and sends real packets. The kernel dropped 3,000 of 3,000 attack packets and let all 400 player packets through. It also dropped 1,000 of 1,000 IP fragments, and 2,000 of 2,000 packets from a single flooding host, while other traffic passed.
+**Saran:** And this runs on a real kernel. Our kernel test loads the program on a Linux network interface and sends real packets. The kernel dropped 3,000 of 3,000 attack packets and let all 400 player packets through. It also dropped 1,000 of 1,000 IP fragments, and every packet from a blocked flooding host, including pings, while other traffic passed. Blocked addresses expire inside the kernel, so nothing stays blocked if the controller crashes. And we replayed real attack captures through it: the live loop recognised them in 2 seconds and the kernel dropped about 99% of their packets.
 
 ## 4. Detection (Sushrith, ~1.5 min)
 
@@ -55,13 +55,13 @@ Before you start: run `shieldwall dashboard`, open http://127.0.0.1:8000, wait 2
 
 **Sushrith:** *(open **Results**)* Three kinds of evidence, and we're careful to say which is which.
 
-**Sushrith:** First, **real attack data that we didn't create**. Three public captures of real-world attacks, and three attacks from the CIC-DDoS2019 university dataset, replayed through the engine. All 6 were detected in about 2 seconds and blocked within 3 seconds. Once blocking started, at least 94% of attack packets were dropped, with zero false alarms.
+**Sushrith:** First, **real attack data that we didn't create**. Three public captures of real-world attacks, and three attacks from the CIC-DDoS2019 university dataset, replayed through the engine. All 6 were detected in about 2 seconds and blocked within 3 seconds; once blocking started, at least 93.7% of attack packets were dropped, with zero false alarms. Then we sent two of the real captures through the real XDP program on Linux: the kernel dropped 98.5% and 99.1% of their packets, and not a single player packet.
 
-**Sushrith:** Testing on real data found real problems, and we fixed them. Real amplification floods are partly IP fragments with no port numbers, so a port rule let them through. One capture mixed three attack types at once. And CIC-DDoS2019's attacks all come from a single machine, which our fingerprints missed until we added a heavy-hitter rule. That's the value of testing on data you didn't write.
+**Sushrith:** Testing on real data found real problems, and we fixed them. Real amplification floods are partly IP fragments with no port numbers, so a port rule let them through. One capture mixed three attack types at once. And CIC-DDoS2019's attacks all come from a single machine, which our fingerprints missed until we added a heavy-hitter rule. That's the value of testing on data you didn't write. But because we fixed things using those files, we also froze the code and ran it once on eight attacks nobody had looked at. It caught 5 of 8. Two were too small to matter, and one, a TCP SYN-ACK reflection attack, was a real miss: the alarms fired but no fingerprint matched, and we deliberately don't block what we can't classify. We'd rather show you that than a perfect score.
 
 **Sushrith:** Second, **our simulated lab**, where we know the exact right answer for every second: 200 random trials, half attacks and half not. Precision was 100%, so it never once called normal traffic an attack: 0 of 93 non-attacks were blocked. F1 was 0.97 per second and 0.99 per attack.
 
-**Sushrith:** Third, **the AI itself**. An automatic check confirmed every number gpt-4o-mini wrote matches the facts, and a second model judged whether each claim used the number with the right meaning. 100% of its numbers matched the facts. The judge first rated 92% of claims faithful because the model over-claimed, so we fixed the prompt using what the evaluation found, and it reached 100%. Its rule suggestions went from 0 of 15 accepted to 7 of 12; the controller rejects the rest. Each explanation costs about $0.0001.
+**Sushrith:** Third, **the AI itself**. An automatic check confirmed every number gpt-4o-mini wrote matches the facts, and the same model, prompted as a strict fact-checker, judged whether each claim used the number with the right meaning. That's a check, not proof. 100% of its numbers matched the facts. The judge first rated 92% of claims faithful because the model over-claimed, so we fixed the prompt using what the evaluation found. On new incidents the prompt was never tuned on, 89 of 89 claims were judged faithful and 7 of its 13 suggested rules passed the controller. Each explanation costs about $0.0001.
 
 ## 7. Wrap-up (Tamish, ~30 s)
 
@@ -75,7 +75,16 @@ Before you start: run `shieldwall dashboard`, open http://127.0.0.1:8000, wait 2
 That's why we also replayed real attack captures and CIC-DDoS2019 attacks we didn't create. The real data exposed three weaknesses (fragments, multi-vector attacks, single-host floods), which we fixed.
 
 **Is the CIC-DDoS2019 test real packets?**
-The CSV release only has flow records. We rebuilt packets from them: real addresses, ports, protocols, packet counts, sizes and timing per flow. Only the spacing of packets inside a flow is approximated.
+The CSV release only has flow records. We rebuilt packets from them: real addresses, ports, protocols, packet counts, sizes and timing per flow. Only the spacing of packets inside a flow is approximated. CIC can't test the attack-type checks: every attack comes from one machine, the "NTP" and "LDAP" attacks don't use ports 123 and 389, and the "Syn" flows rebuild with no SYN flags. So CIC tests the single-host rule; the public captures test the fingerprints.
+
+**Did you tune on the same data you report?**
+Partly, and we say so: fixing what real data exposed changed thresholds and added rules. That's why we also froze the code and ran it once on data nobody had looked at: five more public captures, three more CIC-DDoS2019 files, and the LLM on new incidents. Those held-out numbers are reported separately.
+
+**What if many real players share one IP (a college network or a mobile carrier)?**
+If one new address sends most of the traffic and that traffic goes to the game's own ports, ShieldWall rate-limits it to a fair share instead of blocking it, so those players keep playing. Only a single host that isn't talking to the game gets blocked outright.
+
+**Can an attacker get its bots trusted first?**
+It's harder now: a source is only trusted after it has been seen in 5 separate calm seconds, not one burst. A patient attacker could still pre-warm bots, which is why trust only relaxes rate limits; amplification and fragment rules apply to everyone.
 
 **Did you train anything? Why not machine learning?**
 No training: it learns each server's normal traffic live. Statistics are explainable, which lets the LLM say exactly why it fired, and they adapt when traffic changes. ML trained on one dataset often fails on another network.
@@ -93,4 +102,4 @@ No, it's simulated. The tool writes the rule an ISP would need, and our simulato
 iptables runs after the kernel has done a lot of work per packet; XDP runs before that, so it can drop millions of packets per second on one core. And iptables doesn't detect anything.
 
 **What can't it do?**
-Floods bigger than the link need the provider. IPv4 only. Website-request (HTTP) floods aren't classified. We haven't measured raw throughput (packets per second per core), which needs special network hardware.
+Floods bigger than the link need the provider. IPv4 only. Website-request (HTTP) floods aren't classified. We haven't measured raw throughput (packets per second per core) yet; that needs a Linux machine or VM whose network driver supports native XDP, which most cloud VMs have.

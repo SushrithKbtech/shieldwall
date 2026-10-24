@@ -5,8 +5,8 @@ Each scenario: 40s of normal play to learn the baseline, a 60s event, 40s of rec
 | # | Scenario | Classified as | Real traffic served WITHOUT | Real traffic served WITH | Time to detect | Time to mitigate | Escalated upstream | False positives |
 |---|---|---|---|---|---|---|---|---|
 | S1 | Clean attack: CLDAP amplification | CLDAP amplification flood | 30.2% | 98.1% | 2s | 3s | no | - |
-| S2a | Attack mixed with real traffic: SYN flood on the game port | TCP SYN flood | 40.1% | 98.7% | 2s | 3s | no | - |
-| S2b | Attack mixed with real traffic: UDP flood | UDP flood | 50.3% | 99.3% | 2s | 3s | no | - |
+| S2a | Attack mixed with real traffic: SYN flood on the game port | TCP SYN flood | 40.1% | 98.6% | 2s | 3s | no | - |
+| S2b | Attack mixed with real traffic: UDP flood | UDP flood | 50.3% | 98.6% | 2s | 3s | no | - |
 | S3 | Legitimate spike, no attack (flash crowd) | legitimate traffic surge | 100.0% | 100.0% | 3s | n/a | no | 0 rules, 0.0% real traffic dropped |
 | S4 | Attack bigger than the link (25 Gbps into 10 Gbps) | CLDAP amplification flood | 2.8% | 95.7% | 2s | 4s | yes | - |
 

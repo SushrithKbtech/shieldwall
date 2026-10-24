@@ -1,0 +1,35 @@
+[
+  {
+    "capture": "amp.UDP.DNSANY.pcap",
+    "kernel": "6.18.54.1-microsoft-standard-WSL2",
+    "classified_as": "DNS amplification flood",
+    "detect_s": 2,
+    "block_s": 2,
+    "rules": [
+      "DROP UDP src port 53",
+      "DROP UDP fragments from unknown sources"
+    ],
+    "capture_packets_sent": 11998,
+    "capture_packets_dropped": 11820,
+    "player_packets_sent": 300,
+    "player_packets_dropped": 0
+  },
+  {
+    "capture": "amp.UDP.memcached.ntp.cldap.pcap",
+    "kernel": "6.18.54.1-microsoft-standard-WSL2",
+    "classified_as": "multi-vector amplification (Memcached, NTP, DNS)",
+    "detect_s": 2,
+    "block_s": 2,
+    "rules": [
+      "DROP UDP src port 11211",
+      "DROP UDP src port 123",
+      "DROP UDP src port 53",
+      "DROP UDP src port 389",
+      "DROP UDP fragments from unknown sources"
+    ],
+    "capture_packets_sent": 29462,
+    "capture_packets_dropped": 29205,
+    "player_packets_sent": 300,
+    "player_packets_dropped": 0
+  }
+]

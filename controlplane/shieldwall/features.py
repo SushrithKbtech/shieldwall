@@ -5,6 +5,8 @@ import math
 from collections import defaultdict
 
 from .models import ACK, AMP_PORTS, SYN, UDP, Features, Window, ip_str
+
+SERVICE_PORTS = (25565, 19132)  # the protected game: Minecraft Java (TCP) and Bedrock (UDP)
 from .sketches import BloomFilter, CountMinSketch, HyperLogLog
 
 
@@ -64,6 +66,10 @@ class Featurizer:
         amp_port = max(amp_by_port, key=amp_by_port.get) if amp_by_port else None
         amp_ports = sorted((p for p, w in amp_by_port.items() if pps and w / pps >= 0.05),
                            key=lambda p: -amp_by_port[p])
+        amp_ports_seen = sorted((p for p, w in amp_by_port.items() if pps and w / pps >= 0.005),
+                                key=lambda p: -amp_by_port[p])
+        top_total = sum(p.w for p in win.samples if p.src == top_src) if top_src is not None else 0.0
+        top_service = sum(p.w for p in win.samples if p.src == top_src and p.dport in SERVICE_PORTS)             if top_src is not None else 0.0
         return Features(
             t=win.t,
             pps=pps,
@@ -84,6 +90,8 @@ class Featurizer:
             top_src=top_src,
             top_src_new=top_src is not None and top_src not in self.seen,
             amp_ports=amp_ports,
+            amp_ports_seen=amp_ports_seen,
+            top_src_to_service=top_service / top_total if top_total else 0.0,
         )
 
     def learn(self, win: Window) -> None:

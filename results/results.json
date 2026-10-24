@@ -19,12 +19,12 @@
     "malicious": true,
     "label": "TCP SYN flood",
     "served_without": 40.09628788886246,
-    "served_with": 98.6929397408353,
+    "served_with": 98.55232889744573,
     "detect_s": 2,
     "mitigate_s": 3,
     "escalated": false,
     "rules_added": 1,
-    "legit_dropped_pct": 0.06194646029916825,
+    "legit_dropped_pct": 0.20255730368874666,
     "explanation": "Your server was attacked from about 2,611 sources using a TCP SYN flood at up to 160,877 packets/s. ShieldWall blocked it 3 seconds after it started. 99% of real player traffic got through during the attack. No action needed from you."
   },
   {
@@ -33,12 +33,12 @@
     "malicious": true,
     "label": "UDP flood",
     "served_without": 50.34858662629982,
-    "served_with": 99.26577790545431,
+    "served_with": 98.62842027335391,
     "detect_s": 2,
     "mitigate_s": 3,
     "escalated": false,
     "rules_added": 1,
-    "legit_dropped_pct": 0.28556001036044426,
+    "legit_dropped_pct": 0.9229176424608514,
     "explanation": "Your server was attacked from about 2,435 sources using a UDP flood at up to 129,293 packets/s. ShieldWall blocked it 3 seconds after it started. 99% of real player traffic got through during the attack. No action needed from you."
   },
   {

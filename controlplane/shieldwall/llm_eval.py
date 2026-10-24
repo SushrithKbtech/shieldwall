@@ -119,12 +119,12 @@ def incident_facts(preset: str, seed: int) -> dict | None:
     return captured[-1] if captured else None  # a gentle surge may never raise an incident
 
 
-def main(out_path: str | None = None) -> dict:
+def main(out_path: str | None = None, seed_offset: int = 0) -> dict:
     if not os.environ.get("OPENAI_API_KEY"):
         raise SystemExit("llm-eval needs OPENAI_API_KEY")
     os.environ["SHIELDWALL_LLM"] = "openai"  # the report/suggestion step must use the model being evaluated
     rows = []
-    for seed, preset in enumerate(CASES * 2, start=1):
+    for seed, preset in enumerate(CASES * 2, start=1 + seed_offset):
         facts = incident_facts(preset, seed)
         if facts is None:
             continue
@@ -142,7 +142,7 @@ def main(out_path: str | None = None) -> dict:
                      "label_ok": label_ok, "claims": claims, "judge_usage": judge_usage, **usage})
 
     # chat over the event log: two attacks, then three questions with known answers
-    eng = Engine(sim_cfg=SimConfig(seed=99), explain_async=False)
+    eng = Engine(sim_cfg=SimConfig(seed=99 + seed_offset), explain_async=False)
     eng.launch("cldap", duration=30, start=40)
     eng.launch("syn", duration=30, start=150)
     for _ in range(260):
@@ -160,7 +160,7 @@ def main(out_path: str | None = None) -> dict:
     # LLM rule suggestions, checked by the controller
     from .llm_report import incident_report
     suggestions = []
-    for seed, preset in enumerate(["cldap", "dns", "syn", "udp", "mega_cldap"], start=200):
+    for seed, preset in enumerate(["cldap", "dns", "syn", "udp", "mega_cldap"], start=200 + seed_offset):
         e = Engine(sim_cfg=SimConfig(seed=seed), explain_async=False)
         e.launch(preset, duration=40, start=40)
         for _ in range(60):

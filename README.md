@@ -36,28 +36,58 @@ Three kinds of evidence, labelled clearly:
 
 ### 1. Real attack data
 
-Real attack traffic replayed at its real packet rate for 30 s, mixed into modelled player traffic (~2,000 pps); ground truth is which packets came from the attack data. Full reports: [results/replay.md](results/replay.md), [results/replay_cic.md](results/replay_cic.md).
+Real attack traffic replayed **through the engine** (its Python model of the filter, not the kernel; see section 2 for real captures through the real kernel) at its real packet rate for 30 s, mixed into modelled player traffic (~2,000 pps); ground truth is which packets came from the attack data. Full reports: [results/replay.md](results/replay.md), [results/replay_cic.md](results/replay_cic.md).
 
-| Attack data | Inside | Identified as | Detected | Blocked | Attack dropped once blocking | Real traffic dropped | Players served (without → with) | Precision / recall / F1 (per second) |
-|---|---|---|---|---|---|---|---|---|
-| Public capture amp.UDP.DNSANY.pcap | 20,889 pps, 79 sources, 24% fragments | DNS amplification flood | 2 s | 3 s | **98.5%** | 0.000% | 100.0% → **100.0%** | 1.00 / 0.97 / 0.98 |
-| Public capture pkt.TCP.synflood.spoofed.pcap | 1,598 pps, 37,623 sources | TCP SYN flood | 2 s | 3 s | **93.7%** | 0.018% | 100.0% → **99.9%** | 1.00 / 0.97 / 0.98 |
-| Public capture amp.UDP.memcached.ntp.cldap.pcap | 103,484 pps, 1,992 sources, 14% fragments | multi-vector amplification (Memcached, NTP, DNS) | 2 s | 3 s | **96.0%** | 0.000% | 56.9% → **97.3%** | 1.00 / 0.97 / 0.98 |
-| CIC-DDoS2019 01-12/Syn.csv | 40,853 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 100.0% → **100.0%** | 1.00 / 0.97 / 0.98 |
-| CIC-DDoS2019 01-12/DrDoS_NTP.csv | 214,772 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 27.7% → **95.5%** | 1.00 / 0.97 / 0.98 |
-| CIC-DDoS2019 01-12/DrDoS_LDAP.csv | 19,309 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 100.0% → **100.0%** | 1.00 / 0.97 / 0.98 |
+| Attack data | Inside | Identified as | Detected | Blocked | Attack dropped once blocking | Real traffic dropped | Players served (without → with) |
+|---|---|---|---|---|---|---|---|
+| Public capture amp.UDP.DNSANY.pcap | 20,889 pps, 79 sources, 24% fragments | DNS amplification flood | 2 s | 3 s | **98.5%** | 0.000% | 100.0% → **100.0%** |
+| Public capture pkt.TCP.synflood.spoofed.pcap | 1,598 pps, 37,623 sources | TCP SYN flood | 2 s | 3 s | **93.8%** | 0.061% | 100.0% → **99.8%** |
+| Public capture amp.UDP.memcached.ntp.cldap.pcap | 103,484 pps, 1,992 sources, 14% fragments | multi-vector amplification (Memcached, NTP, DNS) | 2 s | 3 s | **99.1%** | 0.000% | 56.9% → **97.3%** |
+| CIC-DDoS2019 01-12/Syn.csv | 40,853 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 100.0% → **100.0%** |
+| CIC-DDoS2019 01-12/DrDoS_NTP.csv | 214,772 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 27.7% → **95.5%** |
+| CIC-DDoS2019 01-12/DrDoS_LDAP.csv | 19,309 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 100.0% → **100.0%** |
 
 **Public captures** come from [StopDDoS/packet-captures](https://github.com/StopDDoS/packet-captures) ("packet captures of real-world ddos attacks"; free to use for building DDoS protection). **CIC-DDoS2019** is the CSV release (CICFlowMeter flow records): for each file, the busiest 30 s of attack flows were rebuilt into packets with their real addresses, ports, protocols, packet counts, sizes and timing. Only the spacing of packets inside a flow is approximated.
 
 **What real data taught us (and what we fixed):**
 - **Fragments.** Real amplification floods are 14-24% IP fragments, which carry no port numbers. A port rule let them through, so ShieldWall now adds a fragment rule, in the simulator and in the XDP program.
 - **Multi-vector attacks.** The memcached capture mixes Memcached, NTP and DNS reflection at once. ShieldWall now writes a rule for every vector, not just the biggest.
-- **Single-host floods.** Every CIC-DDoS2019 attack comes from one machine (172.16.0.5), and its "DrDoS" attacks don't use the reflection port. Fingerprints missed two of the three, so the Count-Min Sketch heavy hitter now blocks a single never-seen flooding address.
+- **Single-host floods.** Every CIC-DDoS2019 attack comes from one machine (172.16.0.5), and its "DrDoS" attacks don't use the reflection port. Fingerprints missed two of the three, so the Count-Min Sketch heavy hitter now handles a single never-seen flooding address: blocked outright, or rate-limited to a fair share if its traffic goes to the game's own ports (it could be many players behind one shared address).
+- **Small vectors.** CLDAP was only 3.1% of the multi-vector capture, under the 5% cutoff, so it slipped through. Once amplification is confirmed, every reflection port present now gets a rule.
 - **Low-rate SYN floods.** A real 1.6k pps SYN flood showed our SYN thresholds were too strict and the rate limit too loose. Both were tightened (still a 10x margin above normal traffic).
+
+#### Held-out test: run once, after the code was frozen
+
+Thresholds and rules above were adjusted using those six files, so they are not a test on unseen data. To get one, the code was frozen and run **once** on data nobody had looked at: five more public captures and three more CIC-DDoS2019 files. Full reports: [results/heldout_replay.md](results/heldout_replay.md), [results/heldout_replay_cic.md](results/heldout_replay_cic.md).
+
+| Attack data | Inside | Identified as | Detected | Blocked | Attack dropped once blocking | Real traffic dropped | Players served (without → with) |
+|---|---|---|---|---|---|---|---|
+| Public capture amp.dns.RRSIG.fragmented.pcap | 148 pps, 237 sources, 16% fragments | not detected | - s | - s | not blocked | 0.000% | 100.0% → **100.0%** |
+| Public capture amp.UDP.snmp.src161.pcapng | 186,108 pps, 4,276 sources | UDP flood | 2 s | 3 s | **92.9%** | 0.282% | 31.9% → **94.8%** |
+| Public capture amp.UDP.isakmp.pcap | 9,744 pps, 2,767 sources | UDP flood | 2 s | 3 s | **93.8%** | 0.265% | 100.0% → **99.1%** |
+| Public capture amp.TCP.reflection.SYNACK.pcap | 54,465 pps, 7,055 sources | not detected | - s | - s | not blocked | 0.000% | 100.0% → **100.0%** |
+| Public capture pkt.UDP.rdm.fixedlength.pcapng | 927 pps, 11 sources | not detected | - s | - s | not blocked | 0.000% | 100.0% → **100.0%** |
+| CIC-DDoS2019 01-12/UDPLag.csv | 21,847 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 100.0% → **100.0%** |
+| CIC-DDoS2019 03-11/Portmap.csv | 12,394 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 100.0% → **100.0%** |
+| CIC-DDoS2019 01-12/DrDoS_SSDP.csv | 32,872 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 100.0% → **100.0%** |
+
+**5 of 8 were caught.** SNMP and ISAKMP amplification use ports that aren't on ShieldWall's list, and the generic UDP-flood rule still stopped them. Two weren't flagged because they're below the alert floor (148 and 927 packets/s, which don't hurt the server: players stayed at 100%). **One is a real miss:** TCP SYN-ACK reflection at 54k pps from 7,055 sources set off the alarms, but matched no fingerprint, and ShieldWall deliberately doesn't block traffic it can't classify. That is the main gap the held-out test found; the three CIC-DDoS2019 files were all single-host floods again.
+
+**What CIC-DDoS2019 can and can't test.** Every CIC attack comes from one machine, the "NTP" and "LDAP" attacks don't use ports 123 and 389, and the "Syn" flows rebuild with no SYN flags. So CIC tests the single-host rule; only the public captures test the attack-type fingerprints. Several CIC attacks were also too small to hurt the modelled server (players at 100% with or without ShieldWall).
 
 ### 2. Real Linux kernel
 
-[tests/xdp_kernel_test.sh](tests/xdp_kernel_test.sh) loads the XDP program on a veth interface (Linux 6.18, WSL2), sends real packets with scapy and runs the live control plane against the real BPF maps:
+**Real captures through the real XDP program.** [tests/xdp_replay_test.sh](tests/xdp_replay_test.sh) runs modelled players for a baseline, then sends every packet of a real capture (rewritten to the test server's address) through the XDP program on Linux, while the live control loop (`shieldwall live`'s loop) reads the kernel maps, detects, classifies and writes the rules. Afterwards the whole capture is sent once more with the rules active, so the kernel's own counters give exact drop numbers. [results/kernel_replay.json](results/kernel_replay.json)
+
+| Capture | Classified as (live loop) | Detected | Blocked | Capture packets dropped by the kernel | Player packets dropped | Rules |
+|---|---|---|---|---|---|---|
+| amp.UDP.DNSANY.pcap | DNS amplification flood | 2 s | 2 s | **11,820 / 11,998** (98.5%) | 0 / 300 | DROP UDP src port 53; DROP UDP fragments from unknown sources |
+| amp.UDP.memcached.ntp.cldap.pcap | multi-vector amplification (Memcached, NTP, DNS) | 2 s | 2 s | **29,205 / 29,462** (99.1%) | 0 / 300 | DROP UDP src port 11211; DROP UDP src port 123; DROP UDP src port 53; DROP UDP src port 389; DROP UDP fragments from unknown sources |
+
+The packets that got through are the capture's handful of non-amplification packets (ICMP, a few others).
+
+**Kernel feature test.** 
+[tests/xdp_kernel_test.sh](tests/xdp_kernel_test.sh) loads the XDP program on a veth interface (Linux 6.18, WSL2), sends crafted packets with scapy and checks each kernel feature against the real BPF maps:
 
 ```
 normal window : 400 pkts, amp share 0%, 20 sources
@@ -65,9 +95,14 @@ attack window : 3000 pkts, amp share 100% from port 389, ~506 sources -> CLDAP a
 with rule     : kernel dropped 3000 attack pkts, passed 400 player pkts, rule hits 3000
 fragments     : kernel saw 1000 fragments, dropped 1000
 heavy hitter  : blocklist dropped 2000 packets from 45.30.0.9, passed 300 others
+icmp flood    : blocklist dropped 500 of 500 pings from 45.30.0.9
+shared address: rate limit passed 152 of 2000 packets (fair share ~100/s plus burst)
+expiry        : 0 of 200 packets dropped after the entry expired (should be 0)
 dry-run       : dropped 0 (should be 0)
 KERNEL TEST PASSED
 ```
+
+The blocklist covers every protocol (it's checked before the TCP/UDP parsing), and its entries expire inside the kernel, so an address can't stay blocked if the controller crashes.
 
 The program passes the kernel verifier and is JIT-compiled.
 
@@ -78,10 +113,10 @@ The program passes the kernel verifier and is JIT-compiled.
 | Level | Accuracy | Precision | Recall | F1 |
 |---|---|---|---|---|
 | Per 1-second window | 98.668% | **100%** | 94.437% | 0.971 |
-| Per packet dropped | 97.215% | **99.998%** | 96.642% | 0.983 |
+| Per packet dropped | 97.209% | **99.991%** | 96.642% | 0.983 |
 | Per attack (incident) | 99.000% | **100%** | 98.131% | 0.991 |
 
-- **0 of 93** non-attacks (flash crowds and quiet runs) were wrongly mitigated; 0.009% of real traffic was dropped across all trials.
+- **0 of 93** non-attacks (flash crowds and quiet runs) were wrongly mitigated; 0.042% of real traffic was dropped across all trials (new players stay untrusted until seen in 5 calm seconds, so a few get rate-limited during attacks).
 - 100% attack-type accuracy on caught attacks; median time to detect 2 s; 105/107 attacks caught (the misses were the weakest, close to normal volume).
 
 **What the metrics mean.** *Precision*: when ShieldWall says "attack", how often it really is one (low precision means blocking real players). *Recall*: of all real attack time, how much it caught. *F1*: the balance of the two. Per-second recall is below 100% by design: the 2-second persistence guard counts the first seconds of every attack as misses, and that guard is what keeps false alarms at zero.
@@ -91,8 +126,8 @@ The program passes the kernel verifier and is JIT-compiled.
 | Scenario | Classified as | Real traffic served WITHOUT | WITH | Detect | Mitigate |
 |---|---|---|---|---|---|
 | S1 Clean attack: CLDAP amplification | CLDAP amplification flood | 30.2% | **98.1%** | 2 s | 3 s |
-| S2a Attack mixed with real traffic: SYN flood on the game port | TCP SYN flood | 40.1% | **98.7%** | 2 s | 3 s |
-| S2b Attack mixed with real traffic: UDP flood | UDP flood | 50.3% | **99.3%** | 2 s | 3 s |
+| S2a Attack mixed with real traffic: SYN flood on the game port | TCP SYN flood | 40.1% | **98.6%** | 2 s | 3 s |
+| S2b Attack mixed with real traffic: UDP flood | UDP flood | 50.3% | **98.6%** | 2 s | 3 s |
 | S3 Legitimate spike, no attack (flash crowd) | legitimate traffic surge | 100.0% | **100.0%** | 3 s | n/a |
 | S4 Attack bigger than the link (25 Gbps into 10 Gbps) | CLDAP amplification flood | 2.8% | **95.7%** (via simulated provider) | 2 s | 4 s |
 
@@ -100,18 +135,18 @@ The program passes the kernel verifier and is JIT-compiled.
 
 `shieldwall llm-eval` sends the exact production prompts for real engine incidents to gpt-4o-mini and scores the answers automatically. Full report: [results/llm_eval.md](results/llm_eval.md).
 
-| Metric | Prompt v1 | Final prompt |
-|---|---|---|
-| Numbers that match the facts (hallucination check) | 58/58 | **61/61** |
-| Claims judged supported with the right meaning (LLM-as-judge) | 92% | **100%** |
-| Explanations where every claim is supported | 62% | **100%** |
-| Names the correct attack, or calls a surge real players | 100% | **100%** |
-| Chat answers over the event log that contain the right answer | 100% | **100%** |
-| Rule suggestions accepted by the controller (in dry-run) | 0/15 | **7/12** |
-| Median latency (background, never delays blocking) | 1.4 s | **1.5 s** |
-| Cost per explanation | $0.00010 | **$0.00011** |
+| Metric | Prompt v1 | Final prompt | Final prompt, held-out incidents |
+|---|---|---|---|
+| Numbers that match the facts (hallucination check) | 58/58 | 61/61 | **66/66** |
+| Claims judged supported with the right meaning (LLM-as-judge) | 92% | 100% | **100%** |
+| Explanations where every claim is supported | 62% | 100% | **100%** |
+| Names the correct attack, or calls a surge real players | 100% | 100% | **100%** |
+| Chat answers over the event log that contain the right answer | 100% | 100% | **100%** |
+| Rule suggestions accepted by the controller (in dry-run) | 0/15 | 7/12 | **7/13** |
+| Median latency (background, never delays blocking) | 1.4 s | 1.5 s | **1.5 s** |
+| Cost per explanation | $0.00010 | $0.00011 | **$0.00011** |
 
-**What changed, based on what the evaluation found.** Prompt v1 over-claimed ("98% got through *without any impact*"), once called a UDP flood "not malicious", and kept suggesting blocks on single reflector addresses that each sent ~0.1% of a distributed attack, which the controller rejected. The final prompt tells the model to state numbers exactly, gives it each top sender's share of the traffic (source blocks only above 20%), and adds plain status fields (`incident_over`, `blocking_now`) after a live run showed it confusing "not over yet" with "not blocked". The controller also gained a rule the evaluation motivated: no drop rules on the game's own ports, only rate limits. The judge is the same model family, so it is a check, not proof. Reports: [v1](results/llm_eval_prompt_v1.md), [final](results/llm_eval.md).
+**What changed, based on what the evaluation found.** Prompt v1 over-claimed ("98% got through *without any impact*"), once called a UDP flood "not malicious", and kept suggesting blocks on single reflector addresses that each sent ~0.1% of a distributed attack, which the controller rejected. The final prompt tells the model to state numbers exactly, gives it each top sender's share of the traffic (source blocks only above 20%), and adds plain status fields (`incident_over`, `blocking_now`) after a live run showed it confusing "not over yet" with "not blocked". The controller also gained a rule the evaluation motivated: no drop rules on the game's own ports, only rate limits. The judge is the same model (gpt-4o-mini) prompted as a strict fact-checker, so it is a check, not proof. The prompt was tuned on the first set of incidents; the held-out column uses new incidents (different seeds) it never saw. Reports: [v1](results/llm_eval_prompt_v1.md), [final](results/llm_eval.md), [held-out](results/llm_eval_heldout.md).
 
 ## How it works
 
@@ -233,7 +268,7 @@ docs/                         presentation script and slides (.pptx and .pdf)
 - **The players and the game server are modelled** in the simulated lab and the replays (the server is a 60k packets/s capacity). The attack traffic in the replays is real.
 - **CIC-DDoS2019 is flow records, not packets.** Packets are rebuilt from the flows; spacing inside a flow is approximated.
 - **IPv4 only**; IPv6 traffic is passed through untouched. HTTP (layer 7) floods are not classified.
-- **No throughput benchmark.** Packets per second per core needs a native-XDP network card.
+- **No throughput benchmark yet.** Measuring packets per second per core needs a Linux machine or VM whose network driver supports native XDP (most cloud VMs do); it hasn't been run.
 - **The live loader reads maps through `bpftool`**, fine up to tens of thousands of sources; a libbpf reader would be needed for much larger botnets.
 
 ## Safety and ethics

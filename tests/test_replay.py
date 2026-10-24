@@ -60,3 +60,30 @@ def test_single_host_flood_is_blocked_by_heavy_hitter_rule():
     assert s["attack_dropped_after_block_pct"] > 99
     assert s["legit_dropped_pct"] < 0.1
     assert any(r.src == attacker for r in eng.controller.rules.values())
+
+
+def test_small_reflection_vector_is_also_blocked(tmp_path):
+    # a multi-vector capture where CLDAP (port 389) is only ~3% of packets: still gets its own rule
+    p = tmp_path / "multi.pcap"
+    frames = []
+    for i in range(3000):
+        src = 0x2D000000 + (i % 500)
+        port = 389 if i % 32 == 0 else (11211 if i % 2 else 123)
+        frames.append(udp_frame(src, port, 40000 + i % 100, 900))
+    write_pcap(p, frames)
+    pkts, _ = load_capture(str(p))
+    eng, pts = run_once(pkts, True, attack_at=35, duration=20, tail=10, scale=1.0)
+    ports = {r.sport for r in eng.controller.rules.values()}
+    assert {11211, 123, 389} <= ports
+    assert score(pts, 35, 20)["attack_dropped_after_block_pct"] > 99
+
+
+def test_heavy_hitter_on_the_game_port_is_rate_limited_not_blocked():
+    # one new address sending mostly to the game port could be many players behind a shared IP
+    from shieldwall.pcap import ParsedPacket
+
+    shared = 0x0A630001 + 0x10000000  # 26.99.0.1, outside the allowlist
+    pkts = [ParsedPacket(i / 20_000, shared, 0xC0A83201, 6, 1024 + i % 60000, 25565, 0x10, 200) for i in range(20_000)]
+    eng, pts = run_once(pkts, True, attack_at=35, duration=20, tail=10, scale=1.0)
+    rule = next(r for r in eng.controller.rules.values() if r.src == shared)
+    assert rule.action == "rate_limit" and rule.rate_pps >= 500

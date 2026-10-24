@@ -48,10 +48,15 @@ class MitigationController:
         # often a public resolver (8.8.8.8 in a real capture) that the server itself relies on.
         if (f.top_src is not None and f.top_src_new and f.top_share >= 0.3
                 and not c.kind.endswith("_amplification")):
-            # Heavy hitter: one never-seen address sends a big share of an attack. Block just that address.
-            rules.append(Rule(0, "drop", 0, src=f.top_src, src_mask=0xFFFFFFFF, expires_at=t + self.cfg.rule_ttl,
+            # Heavy hitter: one never-seen address sends a big share of an attack. If its traffic mostly goes to
+            # the game's own ports it may be many players behind one shared address (a campus or mobile network),
+            # so it is rate-limited to a fair share instead of blocked; otherwise just that address is dropped.
+            shared = f.top_src_to_service >= 0.5
+            rules.append(Rule(0, "rate_limit" if shared else "drop", 0, src=f.top_src, src_mask=0xFFFFFFFF,
+                              rate_pps=max(500.0, baseline_pps) if shared else 0.0, expires_at=t + self.cfg.rule_ttl,
                               mode="dry-run" if self.cfg.dry_run else "enforce",
-                              reason=f"{c.label}: heavy hitter sending {f.top_share:.0%} of traffic"))
+                              reason=f"{c.label}: heavy hitter sending {f.top_share:.0%} of traffic"
+                                     + (" (possible shared address, rate-limited)" if shared else "")))
         return rules
 
     def _fingerprint_rules(self, c: Classification, f: Features, baseline_pps: float, t: int) -> list[Rule]:
@@ -60,8 +65,9 @@ class MitigationController:
         if c.kind.endswith("_amplification") and f.amp_port:
             # Clean fingerprint -> precise signature drop per reflected service port (all vectors of a
             # multi-vector attack). Real players never match it.
+            # every reflection port present, even small ones: the server never uses these services
             rules = [Rule(0, "drop", UDP, sport=port, expires_at=exp, mode=mode, reason=f"{c.label}: signature drop")
-                     for port in (f.amp_ports or [f.amp_port])]
+                     for port in (f.amp_ports_seen or f.amp_ports or [f.amp_port])]
             if f.frag_share >= 0.05:
                 # Fragments of oversized replies carry no ports; drop those from unknown sources too.
                 rules.append(Rule(0, "drop", UDP, frag_only=True, untrusted_only=True, expires_at=exp, mode=mode,

@@ -17,7 +17,8 @@ RESULTS = Path(__file__).resolve().parents[2] / "results"
 
 def load_results() -> dict:
     out = {}
-    for name in ("metrics", "results", "kernel_test", "llm_eval", "llm_eval_prompt_v1", "replay", "replay_cic"):
+    for name in ("metrics", "results", "kernel_test", "kernel_replay", "llm_eval", "llm_eval_prompt_v1",
+                 "llm_eval_heldout", "replay", "replay_cic", "heldout_replay", "heldout_replay_cic"):
         f = RESULTS / f"{name}.json"
         out[name] = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else None
     return out
