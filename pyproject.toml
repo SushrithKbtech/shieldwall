@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shieldwall"
+version = "0.1.0"
+description = "eBPF/XDP DDoS detection and mitigation for small servers, with an LLM that explains itself"
+requires-python = ">=3.10"
+readme = "README.md"
+dependencies = []
+
+[project.optional-dependencies]
+llm = ["anthropic"]
+dev = ["pytest"]
+
+[project.scripts]
+shieldwall = "shieldwall.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["controlplane"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["controlplane"]

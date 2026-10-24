@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShieldWall Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" class="logo" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m8.5 12 2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <div>
+        <h1>ShieldWall</h1>
+        <p>Detect → Mitigate → Explain · simulated lab</p>
+      </div>
+    </div>
+    <div class="status" id="status">
+      <span class="dot"></span><span id="status-text">Learning baseline</span>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card kpis">
+      <div class="kpi"><span class="k-label">Incoming</span><span class="k-val" id="k-pps">0</span><span class="k-unit">pps</span></div>
+      <div class="kpi"><span class="k-label">Bandwidth</span><span class="k-val" id="k-gbps">0</span><span class="k-unit">Gbps</span></div>
+      <div class="kpi"><span class="k-label">Real players served</span><span class="k-val" id="k-served">100</span><span class="k-unit">%</span></div>
+      <div class="kpi"><span class="k-label">Unique sources</span><span class="k-val" id="k-src">0</span><span class="k-unit">HyperLogLog</span></div>
+      <div class="kpi"><span class="k-label">Stage</span><span class="k-val small" id="k-stage">observe</span><span class="k-unit">observe → rate-limit → drop → escalate</span></div>
+    </section>
+
+    <section class="card chart-card">
+      <div class="card-head"><h2>Traffic</h2><span class="hint">arriving vs passed to the server (log scale)</span></div>
+      <div class="chart-wrap"><canvas id="traffic"></canvas></div>
+    </section>
+
+
+    <section class="card controls">
+      <div class="card-head"><h2>Lab traffic</h2><span class="hint">inject a scenario (isolated, simulated)</span></div>
+      <div class="buttons">
+        <button data-preset="cldap">CLDAP amplification</button>
+        <button data-preset="dns">DNS amplification</button>
+        <button data-preset="syn">SYN flood</button>
+        <button data-preset="udp">UDP flood</button>
+        <button data-preset="flash_crowd" class="soft">Flash crowd (real players)</button>
+        <button data-preset="mega_cldap" class="hot">Bigger than the link</button>
+        <button id="stop" class="ghost">Stop all</button>
+      </div>
+      <div class="detector">
+        <div class="vote" id="v-zscore"><span>z-score</span><b id="d-z">0</b></div>
+        <div class="vote" id="v-cusum"><span>CUSUM</span><b id="d-c">0</b></div>
+        <div class="vote" id="v-entropy"><span>Entropy</span><b id="d-e">0</b></div>
+      </div>
+      <p class="classification" id="classification">No anomaly.</p>
+    </section>
+
+    <section class="card chart-card">
+      <div class="card-head"><h2>Real-player success</h2><span class="hint">the panel that matters most</span></div>
+      <div class="chart-wrap short"><canvas id="served"></canvas></div>
+    </section>
+
+    <section class="card ai">
+      <div class="card-head"><h2>AI assistant</h2><span class="hint">explains, never blocks</span></div>
+      <div class="explain" id="explain">Nothing to report yet. Launch a scenario to see ShieldWall react.</div>
+      <div class="chat" id="chat"></div>
+      <form id="ask">
+        <input id="question" placeholder="Ask: what happened? why did you block port 389?" autocomplete="off">
+        <button type="submit">Ask</button>
+      </form>
+    </section>
+
+    <section class="card rules">
+      <div class="card-head"><h2>Active rules</h2><span class="hint">every rule expires</span></div>
+      <ul id="rules" class="list"></ul>
+      <div class="card-head sub"><h2>Upstream (BGP FlowSpec)</h2></div>
+      <ul id="upstream" class="list"></ul>
+      <div class="card-head sub"><h2>Top talkers</h2><span class="hint">Count-Min Sketch</span></div>
+      <ul id="talkers" class="list mono"></ul>
+    </section>
+
+    <section class="card events">
+      <div class="card-head"><h2>Event log</h2><span class="hint">SQLite</span></div>
+      <ul id="events" class="list log"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
