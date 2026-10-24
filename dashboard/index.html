@@ -15,78 +15,247 @@
       <svg viewBox="0 0 24 24" class="logo" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m8.5 12 2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       <div>
         <h1>ShieldWall</h1>
-        <p>Detect → Mitigate → Explain · simulated lab</p>
+        <p>Protects a small game server from DDoS attacks</p>
       </div>
     </div>
-    <div class="status" id="status">
-      <span class="dot"></span><span id="status-text">Learning baseline</span>
-    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="live" class="active">Live monitor</button>
+      <button role="tab" data-tab="how">How it works</button>
+      <button role="tab" data-tab="results">Results</button>
+    </nav>
+    <div class="status" id="status"><span class="dot"></span><span id="status-text">Starting</span></div>
   </header>
 
-  <main class="grid">
-    <section class="card kpis">
-      <div class="kpi"><span class="k-label">Incoming</span><span class="k-val" id="k-pps">0</span><span class="k-unit">pps</span></div>
-      <div class="kpi"><span class="k-label">Bandwidth</span><span class="k-val" id="k-gbps">0</span><span class="k-unit">Gbps</span></div>
-      <div class="kpi"><span class="k-label">Real players served</span><span class="k-val" id="k-served">100</span><span class="k-unit">%</span></div>
-      <div class="kpi"><span class="k-label">Unique sources</span><span class="k-val" id="k-src">0</span><span class="k-unit">HyperLogLog</span></div>
-      <div class="kpi"><span class="k-label">Stage</span><span class="k-val small" id="k-stage">observe</span><span class="k-unit">observe → rate-limit → drop → escalate</span></div>
-    </section>
-
-    <section class="card chart-card">
-      <div class="card-head"><h2>Traffic</h2><span class="hint">arriving vs passed to the server (log scale)</span></div>
-      <div class="chart-wrap"><canvas id="traffic"></canvas></div>
-    </section>
-
-
-    <section class="card controls">
-      <div class="card-head"><h2>Lab traffic</h2><span class="hint">inject a scenario (isolated, simulated)</span></div>
-      <div class="buttons">
-        <button data-preset="cldap">CLDAP amplification</button>
-        <button data-preset="dns">DNS amplification</button>
-        <button data-preset="syn">SYN flood</button>
-        <button data-preset="udp">UDP flood</button>
-        <button data-preset="flash_crowd" class="soft">Flash crowd (real players)</button>
-        <button data-preset="mega_cldap" class="hot">Bigger than the link</button>
-        <button id="stop" class="ghost">Stop all</button>
+  <!-- ============================ LIVE ============================ -->
+  <section class="tab-panel active" id="tab-live">
+    <div class="banner" id="banner">
+      <div class="banner-icon" id="banner-icon">✓</div>
+      <div>
+        <h2 id="banner-title">Your server is safe</h2>
+        <p id="banner-text">Traffic looks normal.</p>
       </div>
-      <div class="detector">
-        <div class="vote" id="v-zscore"><span>z-score</span><b id="d-z">0</b></div>
-        <div class="vote" id="v-cusum"><span>CUSUM</span><b id="d-c">0</b></div>
-        <div class="vote" id="v-entropy"><span>Entropy</span><b id="d-e">0</b></div>
+    </div>
+
+    <ol class="steps" id="steps">
+      <li data-step="watch"><b>1</b><span>Watching</span><small>learns normal traffic</small></li>
+      <li data-step="detect"><b>2</b><span>Detected</span><small>alarms agree something is wrong</small></li>
+      <li data-step="identify"><b>3</b><span>Identified</span><small>knows what kind of attack</small></li>
+      <li data-step="block"><b>4</b><span>Blocked</span><small>drops attack traffic in the kernel</small></li>
+      <li data-step="explain"><b>5</b><span>Explained</span><small>AI writes what happened</small></li>
+    </ol>
+
+    <div class="grid">
+      <section class="card kpis">
+        <div class="kpi"><span class="k-label">Traffic arriving <i class="tip" data-tip="Packets per second hitting your server's network card, attack included.">?</i></span><span class="k-val" id="k-pps">0</span><span class="k-unit">packets / second</span></div>
+        <div class="kpi"><span class="k-label">Reaching your server <i class="tip" data-tip="What is left after ShieldWall drops the attack traffic.">?</i></span><span class="k-val" id="k-passed">0</span><span class="k-unit">packets / second</span></div>
+        <div class="kpi"><span class="k-label">Real players getting through <i class="tip" data-tip="Share of genuine player traffic the game server could actually handle this second.">?</i></span><span class="k-val" id="k-served">100</span><span class="k-unit">%</span></div>
+        <div class="kpi"><span class="k-label">Different senders <i class="tip" data-tip="How many distinct IP addresses are sending right now (estimated with HyperLogLog in 1 KB).">?</i></span><span class="k-val" id="k-src">0</span><span class="k-unit">IP addresses</span></div>
+      </section>
+
+      <section class="card chart-card">
+        <div class="card-head"><h3>Traffic</h3><span class="hint">red = everything arriving · green = what reaches the game server</span></div>
+        <div class="chart-wrap"><canvas id="traffic"></canvas></div>
+      </section>
+
+      <section class="card controls">
+        <div class="card-head"><h3>Try it: launch a test attack</h3><span class="hint">simulated, safe</span></div>
+        <div class="attacks">
+          <button data-preset="cldap"><b>CLDAP amplification</b><small>1,800 public servers are tricked into flooding you</small></button>
+          <button data-preset="dns"><b>DNS amplification</b><small>huge DNS replies you never asked for</small></button>
+          <button data-preset="syn"><b>SYN flood</b><small>fake connection requests that never finish</small></button>
+          <button data-preset="udp"><b>UDP flood</b><small>a botnet sprays junk at random ports</small></button>
+          <button data-preset="flash_crowd" class="soft"><b>Flash crowd</b><small>lots of real players join at once (not an attack)</small></button>
+          <button data-preset="mega_cldap" class="hot"><b>Bigger than the internet link</b><small>25 Gbps into a 10 Gbps pipe</small></button>
+        </div>
+        <button id="stop" class="ghost wide">Stop all test traffic</button>
+
+        <div class="card-head sub"><h3>The three alarms</h3><span class="hint">2 of 3 must agree</span></div>
+        <div class="alarms">
+          <div class="alarm" id="v-zscore"><span class="light"></span><div><b>Traffic spike</b><small>far above the normal level <span class="mono" id="d-z"></span></small></div></div>
+          <div class="alarm" id="v-cusum"><span class="light"></span><div><b>Steady build-up</b><small>traffic keeps creeping up <span class="mono" id="d-c"></span></small></div></div>
+          <div class="alarm" id="v-entropy"><span class="light"></span><div><b>Crowd of strangers</b><small>many new senders at once <span class="mono" id="d-e"></span></small></div></div>
+        </div>
+      </section>
+
+      <section class="card chart-card">
+        <div class="card-head"><h3>Real players getting through</h3><span class="hint">the number that matters most</span></div>
+        <div class="chart-wrap short"><canvas id="served"></canvas></div>
+      </section>
+
+      <section class="card ai">
+        <div class="card-head"><h3>AI assistant</h3><span class="hint" id="llm-label">explains, never blocks</span></div>
+        <div class="explain" id="explain">Nothing to report yet. Launch a test attack to see ShieldWall react.</div>
+        <div class="chips">
+          <button data-q="What happened?">What happened?</button>
+          <button data-q="Why did you block that traffic?">Why did you block it?</button>
+          <button data-q="Are my players okay?">Are my players okay?</button>
+        </div>
+        <div class="chat" id="chat"></div>
+        <form id="ask">
+          <input id="question" placeholder="Ask anything about what happened" autocomplete="off">
+          <button type="submit">Ask</button>
+        </form>
+      </section>
+
+      <section class="card rules">
+        <div class="card-head"><h3>What is being blocked</h3><span class="hint">every rule expires on its own</span></div>
+        <ul id="rules" class="list"></ul>
+        <div class="card-head sub"><h3>Biggest senders right now</h3><span class="hint">Count-Min Sketch</span></div>
+        <ul id="talkers" class="list mono"></ul>
+      </section>
+
+      <section class="card events">
+        <div class="card-head"><h3>Timeline</h3><span class="hint">saved to the database</span></div>
+        <ul id="events" class="timeline"></ul>
+      </section>
+    </div>
+  </section>
+
+  <!-- ========================= HOW IT WORKS ========================= -->
+  <section class="tab-panel" id="tab-how">
+    <div class="intro card">
+      <h2>How ShieldWall protects a server</h2>
+      <p>Think of ShieldWall as a bouncer at the door of a game server. It watches everyone arriving, notices when a mob shows up, works out who they are, keeps them out, and then tells the owner what happened in plain English. No training data is needed: it learns what "normal" looks like from the first few seconds of real traffic.</p>
+    </div>
+
+    <ol class="pipeline">
+      <li><span class="num">1</span><h3>Count</h3><p>A tiny program inside the Linux kernel (eBPF/XDP) looks at every packet the moment it arrives and adds it to counters.</p><span class="live" id="how-count"></span></li>
+      <li><span class="num">2</span><h3>Detect</h3><p>Once a second, three alarms compare the counters with normal. If two agree for two seconds, it is an incident.</p><span class="live" id="how-detect"></span></li>
+      <li><span class="num">3</span><h3>Identify</h3><p>A fingerprint check names the attack, or decides it is just a crowd of real players.</p><span class="live" id="how-identify"></span></li>
+      <li><span class="num">4</span><h3>Block</h3><p>A rule is written back into the kernel, which drops matching packets before they cost anything. Rules expire after 60 s.</p><span class="live" id="how-block"></span></li>
+      <li><span class="num">5</span><h3>Explain</h3><p>An LLM turns the facts into a short summary and answers questions. It never decides what to block.</p><span class="live" id="how-explain"></span></li>
+    </ol>
+
+    <section class="card">
+      <div class="card-head"><h3>The models, in plain words</h3><span class="hint">live values update every second</span></div>
+      <div class="models">
+        <article class="model">
+          <header><span class="tag detect">Detect</span><h4>Spike alarm</h4><code>EWMA baseline + z-score</code></header>
+          <p class="q">"Is traffic far above normal right now?"</p>
+          <p>Keeps a running average of normal traffic and measures how many "normal wobbles" away the current second is. Normal wobble is under 3; an attack is often over 1,000.</p>
+          <p class="analogy">Like a shop owner who knows a normal day has 100 customers and notices 10,000 walk in.</p>
+          <div class="live-val">Now: <b id="m-z">0</b> (normal level <span id="m-base">0</span> pps)</div>
+        </article>
+        <article class="model">
+          <header><span class="tag detect">Detect</span><h4>Build-up alarm</h4><code>CUSUM</code></header>
+          <p class="q">"Has traffic been creeping up?"</p>
+          <p>Adds up every small rise above normal. One small rise is ignored, but a steady climb adds up until it trips the alarm.</p>
+          <p class="analogy">Like noticing a slow leak because the water bill keeps going up.</p>
+          <div class="live-val">Now: <b id="m-c">0</b> (alarm at 10)</div>
+        </article>
+        <article class="model">
+          <header><span class="tag detect">Detect</span><h4>Stranger alarm</h4><code>Shannon entropy</code></header>
+          <p class="q">"Are lots of strangers suddenly showing up?"</p>
+          <p>Measures how spread out the senders are. 300 regular players give a steady value; a botnet of thousands makes it jump.</p>
+          <p class="analogy">Like a regular café where a busload of strangers suddenly walks in.</p>
+          <div class="live-val">Now: <b id="m-e">0</b> bits</div>
+        </article>
+        <article class="model">
+          <header><span class="tag count">Count</span><h4>Three memory-saving counters</h4><code>Count-Min · HyperLogLog · Bloom</code></header>
+          <p class="q">"Who sends the most? How many senders? Seen them before?"</p>
+          <p>Count-Min Sketch finds the biggest senders, HyperLogLog counts unique senders in 1 KB, and a Bloom filter remembers who it has seen. Millions of senders, a few kilobytes of memory.</p>
+          <div class="live-val">Now: <b id="m-src">0</b> senders, <b id="m-new">0%</b> of traffic from never-seen senders</div>
+        </article>
+        <article class="model">
+          <header><span class="tag identify">Identify</span><h4>Fingerprint check</h4><code>rule-based classifier</code></header>
+          <p class="q">"What kind of attack is this?"</p>
+          <p>Each attack leaves a tell-tale sign. Traffic coming <i>from</i> port 389, which this server never uses, means CLDAP amplification. Many connection requests that never finish means a SYN flood. Normal handshakes and a normal mix mean real players.</p>
+          <div class="live-val">Now: <b id="m-cls">nothing unusual</b></div>
+        </article>
+        <article class="model">
+          <header><span class="tag block">Block</span><h4>Mitigation controller + XDP filter</h4><code>expiring rules in BPF maps</code></header>
+          <p class="q">"What should we drop, and for how long?"</p>
+          <p>Clean fingerprints get an exact drop rule (for example "UDP from port 389"). Messier floods get a speed limit for unknown senders, while known players pass. Rules expire after 60 s unless the attack continues. Admin addresses are never blocked.</p>
+          <div class="live-val">Now: <b id="m-rules">no rules</b></div>
+        </article>
+        <article class="model">
+          <header><span class="tag explain">Explain</span><h4>AI assistant</h4><code id="m-llm">LLM</code></header>
+          <p class="q">"What happened, in words a non-expert understands?"</p>
+          <p>Gets only verified facts (attack type, size, timings) and the event log, then writes 2-3 sentences or answers a question. It runs in the background, so blocking never waits for it, and it never blocks anything itself.</p>
+          <div class="live-val">Checked: <b id="m-llm-ground">-</b> of the numbers it writes match the facts</div>
+        </article>
       </div>
-      <p class="classification" id="classification">No anomaly.</p>
     </section>
 
-    <section class="card chart-card">
-      <div class="card-head"><h2>Real-player success</h2><span class="hint">the panel that matters most</span></div>
-      <div class="chart-wrap short"><canvas id="served"></canvas></div>
+    <section class="card why">
+      <h3>Why statistics instead of a trained ML model?</h3>
+      <ul>
+        <li><b>No training data needed.</b> It learns your server's normal traffic in seconds and keeps adapting as the server grows.</li>
+        <li><b>Explainable.</b> Every alert can say exactly which alarm fired and why, which an LLM can then put into words.</li>
+        <li><b>Fast.</b> The maths runs in microseconds; the expensive part happens in the kernel.</li>
+      </ul>
+    </section>
+  </section>
+
+  <!-- ============================ RESULTS ============================ -->
+  <section class="tab-panel" id="tab-results">
+    <div class="intro card">
+      <h2>How well does it work?</h2>
+      <p id="res-intro">Loading results…</p>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <h3>Detection quality</h3>
+        <div class="seg" id="level-seg">
+          <button data-level="window" class="active">Per second</button>
+          <button data-level="packet">Per packet</button>
+          <button data-level="incident">Per attack</button>
+        </div>
+      </div>
+      <p class="hint level-hint" id="level-hint"></p>
+      <div class="metric-cards">
+        <div class="metric"><span class="m-name">Accuracy</span><span class="m-val" id="r-acc">-</span><p>Out of everything, how often it made the right call.</p></div>
+        <div class="metric hero"><span class="m-name">Precision</span><span class="m-val" id="r-prec">-</span><p>When it said "attack", how often it really was one. High = no blocking of real players.</p></div>
+        <div class="metric"><span class="m-name">Recall</span><span class="m-val" id="r-rec">-</span><p>Of all real attack time, how much it caught.</p></div>
+        <div class="metric"><span class="m-name">F1 score</span><span class="m-val" id="r-f1">-</span><p>One number balancing precision and recall (1.0 is perfect).</p></div>
+      </div>
+      <div class="two-col">
+        <div>
+          <h4>Confusion matrix</h4>
+          <div class="cm">
+            <div></div><div class="cm-h">Really an attack</div><div class="cm-h">Really normal</div>
+            <div class="cm-h side">Said "attack"</div><div class="cm-cell good"><b id="cm-tp">-</b><small>caught (TP)</small></div><div class="cm-cell bad"><b id="cm-fp">-</b><small>false alarm (FP)</small></div>
+            <div class="cm-h side">Said "normal"</div><div class="cm-cell warn"><b id="cm-fn">-</b><small>missed (FN)</small></div><div class="cm-cell good"><b id="cm-tn">-</b><small>correctly calm (TN)</small></div>
+          </div>
+        </div>
+        <div>
+          <h4>Detection by attack type</h4>
+          <div class="chart-wrap mid"><canvas id="per-type"></canvas></div>
+        </div>
+      </div>
+      <div class="facts" id="extra-facts"></div>
     </section>
 
-    <section class="card ai">
-      <div class="card-head"><h2>AI assistant</h2><span class="hint">explains, never blocks</span></div>
-      <div class="explain" id="explain">Nothing to report yet. Launch a scenario to see ShieldWall react.</div>
-      <div class="chat" id="chat"></div>
-      <form id="ask">
-        <input id="question" placeholder="Ask: what happened? why did you block port 389?" autocomplete="off">
-        <button type="submit">Ask</button>
-      </form>
+    <section class="card">
+      <div class="card-head"><h3>Real players getting through, with vs without ShieldWall</h3><span class="hint">same traffic, run twice</span></div>
+      <div class="chart-wrap tall"><canvas id="scenarios"></canvas></div>
+      <table class="table" id="scenario-table"></table>
     </section>
 
-    <section class="card rules">
-      <div class="card-head"><h2>Active rules</h2><span class="hint">every rule expires</span></div>
-      <ul id="rules" class="list"></ul>
-      <div class="card-head sub"><h2>Upstream (BGP FlowSpec)</h2></div>
-      <ul id="upstream" class="list"></ul>
-      <div class="card-head sub"><h2>Top talkers</h2><span class="hint">Count-Min Sketch</span></div>
-      <ul id="talkers" class="list mono"></ul>
-    </section>
+    <div class="grid2">
+      <section class="card">
+        <div class="card-head"><h3>On a real Linux kernel</h3><span class="hint">tests/xdp_kernel_test.sh</span></div>
+        <div id="kernel"></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h3>AI assistant evaluation</h3><span class="hint" id="llm-model-hint"></span></div>
+        <div id="llm-eval"></div>
+      </section>
+    </div>
 
-    <section class="card events">
-      <div class="card-head"><h2>Event log</h2><span class="hint">SQLite</span></div>
-      <ul id="events" class="list log"></ul>
+    <section class="card">
+      <div class="card-head"><h3>How these numbers were measured</h3></div>
+      <ul class="method">
+        <li><b>Ground truth:</b> the lab traffic generator knows exactly when each attack runs, so every second and every packet can be marked right or wrong.</li>
+        <li><b>60 random trials:</b> CLDAP, DNS, NTP, SYN and UDP attacks from 3,000 to 300,000 packets per second, plus flash crowds and quiet periods.</li>
+        <li><b>Why recall is below 100% per second:</b> ShieldWall waits 2 seconds before acting so one odd second never blocks anyone. Those first seconds count as misses. That wait is why precision is 100%.</li>
+        <li><b>Reproduce:</b> <code>shieldwall metrics</code>, <code>shieldwall eval</code>, <code>shieldwall llm-eval</code>.</li>
+      </ul>
     </section>
-  </main>
+  </section>
 
+  <div class="tooltip" id="tooltip" role="tooltip"></div>
   <script src="app.js"></script>
 </body>
 </html>

@@ -13,6 +13,7 @@ plus attack-type classification accuracy for the attacks we caught.
 """
 from __future__ import annotations
 
+import json
 import math
 import os
 import random
@@ -147,6 +148,18 @@ def main(trials: int = 60, out_path: str | None = None) -> str:
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         with open(out_path, "w", encoding="utf-8") as fh:
             fh.write(report)
+        data = {
+            "trials": trials, "attacks": len(pos), "negatives": len(neg),
+            "levels": {"window": wm, "packet": pm, "incident": im},
+            "type_accuracy": type_acc, "median_detect_s": median_delay, "detect_delays": delays,
+            "legit_dropped_pct": 100 * leg_drop / leg_off,
+            "per_type": [{"kind": k, "trials": len(rs), "detected": sum(r["detected"] for r in rs),
+                          "type_ok": sum(r["type_ok"] for r in rs), "attack": k in ATTACKS}
+                         for k in ATTACKS + NEGATIVES if (rs := [r for r in runs if r["kind"] == k])],
+            "missed": [{"kind": r["kind"], "pps": r["pps"]} for r in missed],
+        }
+        with open(os.path.splitext(out_path)[0] + ".json", "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2)
     return report
 
 

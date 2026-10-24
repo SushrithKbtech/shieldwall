@@ -1,4 +1,6 @@
 """Driven by tests/xdp_kernel_test.sh (root, Linux). Not collected by pytest."""
+import json
+import platform
 import subprocess
 import sys
 
@@ -57,6 +59,9 @@ def main() -> None:
     hits = sum(int(e.get("formatted", e)["value"]["hits"]) for e in _bpftool("map", "dump", "name", "rules"))
     print(f"with rule     : kernel dropped {dropped} attack pkts, passed {passed} player pkts, rule hits {hits}")
     assert dropped >= 3000 and passed >= 400 and passed < 500
+    result = {"kernel": platform.release(), "attack_sent": 3000, "attack_dropped": dropped,
+              "player_sent": 400, "player_passed": passed, "rule_hits": hits,
+              "sources_true": 500, "sources_estimated": f.unique_sources, "classified_as": c.label}
 
     dp.set_enforce(False)  # dry-run: count hits, drop nothing
     before = stats()
@@ -66,6 +71,9 @@ def main() -> None:
     assert after["dropped"] == before["dropped"]
 
     dp.detach()
+    result["dry_run_dropped"] = after["dropped"] - before["dropped"]
+    with open("results/kernel_test.json", "w") as fh:
+        json.dump(result, fh, indent=2)
     print("KERNEL TEST PASSED")
 
 

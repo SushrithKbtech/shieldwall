@@ -5,6 +5,7 @@ dry-run (detector runs, nothing is dropped = "without ShieldWall").
 """
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 
@@ -66,10 +67,15 @@ def _fmt(x, unit="s"):
 
 
 def main(out_path: str | None = None) -> str:
-    rows, notes = [], []
+    rows, notes, data = [], [], []
     for sc in SCENARIOS:
         off = run(sc, enforce=False)
         on = run(sc, enforce=True)
+        data.append({"key": sc.key, "name": sc.name, "malicious": sc.malicious, "label": on["label"],
+                     "served_without": off["served_pct"], "served_with": on["served_pct"],
+                     "detect_s": on["detect_s"], "mitigate_s": on["mitigate_s"], "escalated": on["escalated"],
+                     "rules_added": on["rules_added"], "legit_dropped_pct": on["legit_dropped_pct"],
+                     "explanation": on["explanation"]})
         fp = "-" if sc.malicious else f"{on['rules_added']} rules, {on['legit_dropped_pct']:.1f}% real traffic dropped"
         rows.append(f"| {sc.key} | {sc.name} | {on['label']} | {off['served_pct']:.1f}% | {on['served_pct']:.1f}% "
                     f"| {_fmt(on['detect_s'])} | {_fmt(on['mitigate_s'])} | {'yes' if on['escalated'] else 'no'} | {fp} |")
@@ -99,6 +105,8 @@ def main(out_path: str | None = None) -> str:
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         with open(out_path, "w", encoding="utf-8") as fh:
             fh.write(report)
+        with open(os.path.splitext(out_path)[0] + ".json", "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2)
     return report
 
 

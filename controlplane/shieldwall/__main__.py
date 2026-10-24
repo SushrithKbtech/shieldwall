@@ -4,6 +4,7 @@
     python -m shieldwall demo --attack cldap  terminal run of one scenario
     python -m shieldwall eval                 four-scenario evaluation -> results/results.md
     python -m shieldwall metrics              accuracy / precision / recall / F1 -> results/metrics.md
+    python -m shieldwall llm-eval             LLM grounding, accuracy, latency, cost -> results/llm_eval.md
     sudo python -m shieldwall live --iface eth0   real XDP data plane (Linux)
 """
 from __future__ import annotations
@@ -35,6 +36,9 @@ def main(argv: list[str] | None = None) -> None:
     m.add_argument("--trials", type=int, default=60)
     m.add_argument("--out", default=os.path.join("results", "metrics.md"))
 
+    le = sub.add_parser("llm-eval", help="evaluate the LLM explanations (needs OPENAI_API_KEY)")
+    le.add_argument("--out", default=os.path.join("results", "llm_eval.md"))
+
     live = sub.add_parser("live", help="attach the real XDP program (Linux, root)")
     live.add_argument("--iface", required=True)
     live.add_argument("--obj", default=os.path.join("bpf", "xdp_filter.o"))
@@ -55,6 +59,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "metrics":
         from .metrics import main as metrics
         metrics(args.trials, args.out)
+    elif args.cmd == "llm-eval":
+        from .llm_eval import main as llm_eval
+        llm_eval(args.out)
     elif args.cmd == "live":
         from .bpf_dataplane import run_live
         run_live(args.iface, args.dry_run, args.obj)

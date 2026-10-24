@@ -1,0 +1,72 @@
+[
+  {
+    "key": "S1",
+    "name": "Clean attack: CLDAP amplification",
+    "malicious": true,
+    "label": "CLDAP amplification flood",
+    "served_without": 30.248723678144053,
+    "served_with": 98.14704691363684,
+    "detect_s": 2,
+    "mitigate_s": 3,
+    "escalated": false,
+    "rules_added": 1,
+    "legit_dropped_pct": 0.0,
+    "explanation": "Your server was attacked from about 2,213 sources using a CLDAP amplification flood at up to 212,892 packets/s. ShieldWall blocked it 3 seconds after it started. 99% of real player traffic got through during the attack. No action needed from you."
+  },
+  {
+    "key": "S2a",
+    "name": "Attack mixed with real traffic: SYN flood on the game port",
+    "malicious": true,
+    "label": "TCP SYN flood",
+    "served_without": 40.09628788886246,
+    "served_with": 98.69298080599961,
+    "detect_s": 2,
+    "mitigate_s": 3,
+    "escalated": false,
+    "rules_added": 1,
+    "legit_dropped_pct": 0.06190539513486965,
+    "explanation": "Your server was attacked from about 2,611 sources using a TCP SYN flood at up to 160,877 packets/s. ShieldWall blocked it 3 seconds after it started. 99% of real player traffic got through during the attack. No action needed from you."
+  },
+  {
+    "key": "S2b",
+    "name": "Attack mixed with real traffic: UDP flood",
+    "malicious": true,
+    "label": "UDP flood",
+    "served_without": 50.34858662629982,
+    "served_with": 99.26577790545431,
+    "detect_s": 2,
+    "mitigate_s": 3,
+    "escalated": false,
+    "rules_added": 1,
+    "legit_dropped_pct": 0.28556001036044426,
+    "explanation": "Your server was attacked from about 2,435 sources using a UDP flood at up to 129,293 packets/s. ShieldWall blocked it 3 seconds after it started. 99% of real player traffic got through during the attack. No action needed from you."
+  },
+  {
+    "key": "S3",
+    "name": "Legitimate spike, no attack (flash crowd)",
+    "malicious": false,
+    "label": "legitimate traffic surge",
+    "served_without": 100.00018338842662,
+    "served_with": 100.00018338842662,
+    "detect_s": 3,
+    "mitigate_s": null,
+    "escalated": false,
+    "rules_added": 0,
+    "legit_dropped_pct": 0.0,
+    "explanation": "Traffic jumped to 7,246 packets/s, but it looks like real players (handshakes complete, normal protocol mix). ShieldWall is watching and did not block anyone."
+  },
+  {
+    "key": "S4",
+    "name": "Attack bigger than the link (25 Gbps into 10 Gbps)",
+    "malicious": true,
+    "label": "CLDAP amplification flood",
+    "served_without": 2.7757640563233017,
+    "served_with": 95.66400282056784,
+    "detect_s": 2,
+    "mitigate_s": 4,
+    "escalated": true,
+    "rules_added": 1,
+    "legit_dropped_pct": 0.0,
+    "explanation": "Your server was attacked from about 2,170 sources using a CLDAP amplification flood at up to 936,014 packets/s. ShieldWall blocked it 3 seconds after it started. 68% of real player traffic got through during the attack. The flood was bigger than your internet link, so ShieldWall asked the upstream network to filter it. No action needed from you."
+  }
+]

@@ -1,0 +1,150 @@
+{
+  "trials": 60,
+  "attacks": 52,
+  "negatives": 8,
+  "levels": {
+    "window": {
+      "accuracy": 0.9796030871003307,
+      "precision": 1.0,
+      "recall": 0.9497964721845319,
+      "f1": 0.9742519137091161,
+      "tp": 2100,
+      "fp": 0,
+      "fn": 111,
+      "tn": 3231
+    },
+    "packet": {
+      "accuracy": 0.9680914898368537,
+      "precision": 0.9999820092314772,
+      "recall": 0.9645177506388332,
+      "f1": 0.9819297695276058,
+      "tp": 132263589.25622813,
+      "fp": 2379.5664285428106,
+      "fn": 4865654.004069999,
+      "tn": 15430610.433571458
+    },
+    "incident": {
+      "accuracy": 0.9833333333333333,
+      "precision": 1.0,
+      "recall": 0.9807692307692307,
+      "f1": 0.9902912621359222,
+      "tp": 51,
+      "fp": 0,
+      "fn": 1,
+      "tn": 8
+    }
+  },
+  "type_accuracy": 1.0,
+  "median_detect_s": 2,
+  "detect_delays": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3
+  ],
+  "legit_dropped_pct": 0.015418699996195233,
+  "per_type": [
+    {
+      "kind": "cldap",
+      "trials": 8,
+      "detected": 8,
+      "type_ok": 8,
+      "attack": true
+    },
+    {
+      "kind": "dns",
+      "trials": 9,
+      "detected": 9,
+      "type_ok": 9,
+      "attack": true
+    },
+    {
+      "kind": "ntp",
+      "trials": 10,
+      "detected": 10,
+      "type_ok": 10,
+      "attack": true
+    },
+    {
+      "kind": "syn",
+      "trials": 14,
+      "detected": 14,
+      "type_ok": 14,
+      "attack": true
+    },
+    {
+      "kind": "udp",
+      "trials": 11,
+      "detected": 10,
+      "type_ok": 10,
+      "attack": true
+    },
+    {
+      "kind": "flash_crowd",
+      "trials": 5,
+      "detected": 0,
+      "type_ok": 0,
+      "attack": false
+    },
+    {
+      "kind": "none",
+      "trials": 3,
+      "detected": 0,
+      "type_ok": 0,
+      "attack": false
+    }
+  ],
+  "missed": [
+    {
+      "kind": "udp",
+      "pps": 6100.914192757771
+    }
+  ]
+}

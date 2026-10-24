@@ -11,7 +11,8 @@ readme = "README.md"
 dependencies = []
 
 [project.optional-dependencies]
-llm = ["anthropic"]
+openai = ["openai"]
+claude = ["anthropic"]
 dev = ["pytest"]
 
 [project.scripts]

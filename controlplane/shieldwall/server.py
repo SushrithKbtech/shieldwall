@@ -12,6 +12,15 @@ from .engine import PRESETS, Engine
 from .llm import answer_question
 
 DASHBOARD = Path(__file__).resolve().parents[2] / "dashboard"
+RESULTS = Path(__file__).resolve().parents[2] / "results"
+
+
+def load_results() -> dict:
+    out = {}
+    for name in ("metrics", "results", "kernel_test", "llm_eval"):
+        f = RESULTS / f"{name}.json"
+        out[name] = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else None
+    return out
 
 
 def make_handler(engine: Engine):
@@ -34,6 +43,8 @@ def make_handler(engine: Engine):
             path = self.path.split("?")[0]
             if path == "/api/state":
                 return self._json(engine.snapshot())
+            if path == "/api/results":
+                return self._json(load_results())
             if path == "/api/presets":
                 return self._json(list(PRESETS))
             rel = "index.html" if path in ("/", "") else path.lstrip("/")
@@ -65,6 +76,7 @@ def make_handler(engine: Engine):
 
 def serve(host: str = "127.0.0.1", port: int = 8000, speed: float = 1.0, warmup: int = 40,
           store_path: str = "shieldwall_events.db") -> None:
+    Path(store_path).unlink(missing_ok=True)  # each run starts its own timeline (t restarts at 0)
     engine = Engine(store_path=store_path)
     for _ in range(warmup):  # learn the baseline before the audience arrives
         engine.step()

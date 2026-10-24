@@ -44,21 +44,23 @@ Before you start: run `shieldwall dashboard`, open http://127.0.0.1:8000, and wa
 
 ## 5. Live demo (A drives, B narrates, ~2 min)
 
+*(Tip: if anyone asks how a model works, the **How it works** tab explains each one with an everyday example and its live value.)*
+
 **A:** *(points at the dashboard)* This is normal traffic, about 2,000 packets per second of players. The dotted line is the baseline it learned by itself.
 
 **A:** *(click **CLDAP amplification**)* I've just started an attack in our isolated lab: 200,000 packets per second.
 
-**B:** Watch the red line jump. In about 2 seconds all three detector boxes light up, and it says "CLDAP amplification flood". It knows the type because the traffic comes from port 389, and our server never uses that service. That's the giveaway for amplification attacks.
+**B:** Watch the banner at the top turn red: "Under attack: CLDAP amplification flood". In about 2 seconds the three alarms on the right light up, and the step tracker moves from Watching to Detected, Identified and Blocked. It knows the type because the traffic comes from port 389, and our server never uses that service. That's the giveaway for amplification attacks.
 
-**B:** Now look at the green line, traffic actually reaching the server. It drops back to normal. A rule "DROP UDP src port 389" appeared on the right. And the player success graph went back to 100%.
+**B:** Now look at the green line, traffic actually reaching the server. It drops back to normal. Under "What is being blocked" it says "Dropping UDP traffic coming from port 389". And the player success graph went back to 100%.
 
-**A:** And here's the AI panel. *(read the explanation out loud)* We can also ask it: *(type "why did you block port 389?")*
+**A:** And here's the AI assistant, which is gpt-4o-mini. *(read the explanation out loud)* We can also ask it questions: *(click "Why did you block it?")*
 
 **B:** Important point: the AI only explains. The blocking decision is made by the maths in milliseconds. An LLM is too slow and unpredictable to decide what to block, so we never let it.
 
 **A:** *(click **Flash crowd**)* Now a different case: lots of real players join at once, like a launch day. Traffic triples.
 
-**B:** It notices the jump, but says "legitimate traffic surge" and blocks nobody, because the connections complete normally and the traffic mix looks like real players. Not punishing your own users is the hardest part of this problem.
+**B:** The banner turns yellow and says "Busy, but it's real players". It blocks nobody, because the connections complete normally and the traffic mix looks like real players. Not punishing your own users is the hardest part of this problem.
 
 **A:** *(optional, click **Bigger than the link**)* Last one: a 25 Gbps attack into a 10 Gbps connection. The pipe is full before we can do anything locally, so ShieldWall sends the rule upstream as a BGP FlowSpec rule, and players recover.
 
@@ -68,7 +70,9 @@ Before you start: run `shieldwall dashboard`, open http://127.0.0.1:8000, and wa
 
 **B:** Without it, real players got 30 to 50% of their traffic through during an attack. With it, 98 to 99%. Detection takes 2 seconds and blocking 3 seconds. In the flash-crowd test it added zero rules and dropped zero real traffic. Even the bigger-than-the-link attack recovered to about 96% once the upstream filter kicked in.
 
-**B:** We also measured accuracy, precision, recall and F1 over 60 random trials with weak and strong attacks, flash crowds and quiet periods. *(read the numbers from the results slide)* The attack traffic in these tests comes from our lab traffic generator, so we know exactly when each attack happened.
+**B:** *(click the **Results** tab)* We also measured accuracy, precision, recall and F1 over 60 random trials with weak and strong attacks, flash crowds and quiet periods. Precision is 100%: it never once called normal traffic an attack. F1 is 0.97 per second and 0.99 per attack. The confusion matrix shows zero false alarms. We know the right answer for every second because our lab traffic generator knows exactly when each attack ran.
+
+**A:** Because this is an LLM project, we also tested the LLM itself. We checked every number gpt-4o-mini wrote against the real facts: 100% matched, so no hallucinated numbers. It named the right attack every time, answered chat questions correctly, replied in about 1.6 seconds, and each explanation costs less than a hundredth of a cent.
 
 ## 7. Wrap-up (A, ~45 s)
 
@@ -85,8 +89,11 @@ Before you start: run `shieldwall dashboard`, open http://127.0.0.1:8000, and wa
 **Why not just use a firewall like iptables?**
 iptables runs after the kernel has already done a lot of work on the packet. XDP runs before that, so it can drop millions of packets per second on one core. And iptables doesn't detect anything; it only enforces rules someone wrote by hand.
 
-**Why not machine learning?**
-Statistics are transparent: we can always say exactly why it fired. ML models trained on one dataset often fail on another. We plan to show that as an experiment instead of claiming a high accuracy number.
+**Why not machine learning? Did you train anything?**
+No training was needed. The detectors learn what normal traffic looks like from the first seconds of traffic and keep adapting. Statistics are transparent: we can always say exactly why it fired, which is what lets the LLM explain it. The LLM is pre-trained (gpt-4o-mini); our work is grounding it in verified facts and evaluating it.
+
+**Where is the LLM work in this project?**
+Three parts: grounded prompting (it only sees verified incident facts and the SQL event log), keeping it off the hot path so it can never block anything, and evaluating it automatically for hallucinated numbers, correct attack names, chat accuracy, latency and cost.
 
 **What if the attacker uses the same port as real players?**
 That's the SYN and UDP flood cases. Then we can't use a clean signature, so we rate-limit sources we've never seen complete a normal connection, while known players pass through.

@@ -5,7 +5,14 @@ ShieldWall watches all traffic to one server, detects a DDoS attack in about 2 s
 
 `C (eBPF/XDP) drops · Python decides · the LLM explains · SQLite remembers`
 
-![ShieldWall dashboard during a CLDAP amplification attack](docs/dashboard.jpg)
+![ShieldWall live monitor during a CLDAP amplification attack](docs/tab_live.png)
+
+The dashboard has three tabs, written so anyone can follow along:
+
+| Live monitor | How it works | Results |
+|---|---|---|
+| Plain-English status ("Under attack: CLDAP amplification flood. ShieldWall is blocking it."), a 5-step tracker, the three alarms, what is being blocked, a timeline, and the AI assistant | Each model explained with a question, an everyday analogy and its live value | Accuracy, precision, recall, F1, confusion matrix, per-attack detection, with vs without ShieldWall, kernel test and LLM evaluation |
+| ![Live](docs/tab_live.png) | ![How it works](docs/tab_how.png) | ![Results](docs/tab_results.png) |
 
 ## Highlights
 
@@ -15,7 +22,8 @@ ShieldWall watches all traffic to one server, detects a DDoS attack in about 2 s
 - **Safe by design.** Every rule expires, an allowlist is never dropped, the rule count is capped, and a dry-run mode logs without dropping.
 - **Grows with your server.** A sustained legitimate surge becomes the new normal, so busy evenings don't trigger alerts.
 - **Escalates when the pipe is full.** If a flood exceeds the uplink, the drop rule is announced upstream as BGP FlowSpec.
-- **Explains itself.** An LLM turns each incident into a plain-English summary and answers questions from the event log. It never makes a blocking decision.
+- **Explains itself.** gpt-4o-mini turns each incident into a plain-English summary and answers questions from the event log, grounded only in verified facts. It never makes a blocking decision, and its answers are evaluated for hallucinations.
+- **No training needed.** The detectors learn what normal traffic looks like from the first seconds of traffic and keep adapting.
 
 ## Results
 
@@ -46,6 +54,18 @@ Same seeded traffic, once enforcing and once in dry-run ("without"). ~2,000 pps 
 | S2b Mixed with real traffic (UDP flood) | UDP flood | 50.3% | **99.3%** | 2 s | 3 s |
 | S3 Legit surge, no attack (flash crowd) | legitimate surge | 100% | **100%, 0 rules** | 3 s | n/a |
 | S4 Bigger than the link (25 Gbps into 10 Gbps) | CLDAP amplification | 2.8% | **95.7%** (FlowSpec upstream) | 2 s | 4 s |
+
+### The LLM: is it correct, fast and cheap?
+
+`shieldwall llm-eval` sends the exact production prompts for 13 real incidents and 3 chat questions to gpt-4o-mini and scores every answer automatically. Full report: [results/llm_eval.md](results/llm_eval.md).
+
+| Metric | Result |
+|---|---|
+| Numbers in its answers that match the facts it was given (hallucination check) | **100%** (49/49, zero made-up numbers) |
+| Names the correct attack, or calls a surge real players | **100%** |
+| Chat answers over the event log that contain the right answer | **100%** |
+| Median latency (runs in the background, never delays blocking) | 1.6 s |
+| Cost per explanation | $0.00008 |
 
 ### On a real Linux kernel
 
@@ -114,9 +134,18 @@ An alert needs 2 of 3 votes, must persist for 2 windows, and must clear an absol
 Signature drop for clean fingerprints, token-bucket rate limit for the rest (sources that completed handshakes in calm times keep passing). Every rule expires after 60 s and is renewed only while it still matches traffic. Graduated response: observe, rate-limit, drop, escalate. If the link itself is full for 3 windows, the drop rule goes upstream as BGP FlowSpec.
 
 ### 6. LLM layer ([llm.py](controlplane/shieldwall/llm.py))
-Runs in a background thread, off the hot path. Backends: built-in template (default, no network), Claude (`ANTHROPIC_API_KEY`), or a local model through Ollama. Any error falls back to the template.
+Runs in a background thread, off the hot path, so blocking never waits for it (an explanation takes ~2-3 s; blocking takes milliseconds). Backends, picked automatically from the keys you have:
 
-> "Your server was attacked from about 2,145 sources using a CLDAP amplification flood at up to 204,831 packets/s. ShieldWall blocked it 3 seconds after it started. Real players are getting through normally again. No action needed from you."
+| Backend | Setup | Notes |
+|---|---|---|
+| OpenAI `gpt-4o-mini` (default when a key is set) | `pip install openai`, set `OPENAI_API_KEY` | cheapest mini model; override with `SHIELDWALL_OPENAI_MODEL` |
+| Claude | `pip install anthropic`, set `ANTHROPIC_API_KEY` | |
+| Ollama | `SHIELDWALL_LLM=ollama` | runs a local model |
+| Built-in template | nothing | used when no key is set, and as the fallback on any error |
+
+> **gpt-4o-mini:** "Your game server experienced a CLDAP amplification flood attack, peaking at over 213,000 packets per second from 2,204 sources. ShieldWall detected and mitigated the attack quickly, allowing 98.1% of legitimate traffic to be served without significant disruption. There's no action needed on your part, as the incident has been resolved."
+>
+> **Asked "why did you block port 389?":** "We blocked UDP source port 389 because your server was targeted by a CLDAP amplification flood attack... blocking this port helped mitigate the attack."
 
 ## Run it
 
@@ -134,12 +163,13 @@ pip install -e .
 | `shieldwall demo --attack cldap` | one attack, step by step in the terminal |
 | `shieldwall eval` | four-scenario evaluation -> `results/results.md` |
 | `shieldwall metrics` | accuracy / precision / recall / F1 -> `results/metrics.md` |
+| `shieldwall llm-eval` | LLM grounding, accuracy, latency and cost -> `results/llm_eval.md` (needs `OPENAI_API_KEY`) |
 | `pytest -q` | unit and end-to-end tests (`pip install pytest`) |
 
-Plain-English explanations from Claude instead of the template:
+Plain-English explanations from GPT instead of the built-in template:
 ```bash
-pip install anthropic
-export ANTHROPIC_API_KEY=...
+pip install openai
+export OPENAI_API_KEY=...
 ```
 
 ### On Linux with the real XDP program
@@ -169,6 +199,7 @@ controlplane/shieldwall/
   store.py                    SQLite event log
   server.py, ../dashboard/    live dashboard
   evaluate.py, metrics.py     scenario evaluation, accuracy/precision/recall/F1
+  llm_eval.py                 LLM grounding / accuracy / latency / cost evaluation
 tests/                        unit, end-to-end and kernel tests
 results/                      latest evaluation and metrics
 docs/SCRIPT.md                presentation script

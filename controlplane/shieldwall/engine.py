@@ -7,7 +7,7 @@ from collections import OrderedDict, deque
 from .classifier import Classification, Classifier
 from .detectors import Detector, DetectorConfig
 from .features import Featurizer
-from .llm import explain_incident, template_explanation
+from .llm import backend_label, explain_incident, template_explanation
 from .mitigation import MitigationConfig, MitigationController
 from .models import ACK, UDP
 from .simulator import MC_BEDROCK, AttackSpec, SimConfig, SimDataPlane, TrafficSim
@@ -187,9 +187,12 @@ class Engine:
         served = inc.get("served_pct")  # only known once the incident is over
         return {
             "incident": inc["id"], "label": inc["label"], "malicious": inc["malicious"],
-            "peak_pps": inc["peak_pps"], "sources": inc["sources"], "detect_s": inc["detect_s"],
-            "mitigate_s": inc["mitigate_s"], "served_pct": served, "escalated": inc["escalated"],
+            "peak_pps": round(inc["peak_pps"]), "sources": inc["sources"], "detect_s": inc["detect_s"],
+            "mitigate_s": inc["mitigate_s"], "served_pct": None if served is None else round(served, 1),
+            "escalated": inc["escalated"],
             "evidence": inc["evidence"], "resolved": served is not None,
+            "players_now": ("real player traffic is getting through normally again"
+                            if inc["mitigate_s"] is not None and served is None else None),
         }
 
     def _explain(self, inc: dict) -> None:
@@ -199,8 +202,12 @@ class Engine:
         if not self.explain_async:
             return
 
+        inc["explain_seq"] = seq = inc.get("explain_seq", 0) + 1
+
         def work():  # off the hot path: the control loop never waits for the LLM
             text = explain_incident(facts)
+            if inc["explain_seq"] != seq:  # a newer explanation was requested; drop this stale one
+                return
             inc["explanation"] = text
             self.store.update_incident(inc["id"], explanation=text)
 
@@ -219,6 +226,12 @@ class Engine:
                 "anomalous": bool(v and v.anomalous),
                 "votes": v.votes if v else {},
                 "classification": c.label if c else None,
+                "kind": c.kind if c else None,
+                "malicious": bool(c and c.malicious),
+                "incident": None if inc is None else {
+                    "id": inc["id"], "label": inc["label"], "malicious": inc["malicious"],
+                    "since": self.t - inc["start"], "detect_s": inc["detect_s"], "mitigate_s": inc["mitigate_s"],
+                    "escalated": inc["escalated"]},
                 "features": None if f is None else {
                     "pps": round(f.pps), "gbps": round(f.bps / 1e9, 3), "syn_ack_ratio": round(f.syn_ack_ratio, 2),
                     "amp_share": round(f.amp_share, 3), "udp_share": round(f.udp_share, 3),
@@ -233,4 +246,5 @@ class Engine:
                 "events": self.store.recent_events(25),
                 "active_scenarios": [a.kind for a in self.sim.active(self.t)],
                 "trusted_sources": len(self.trusted),
+                "llm": backend_label(),
             }

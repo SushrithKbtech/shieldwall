@@ -1,0 +1,12 @@
+{
+  "kernel": "6.18.54.1-microsoft-standard-WSL2",
+  "attack_sent": 3000,
+  "attack_dropped": 3000,
+  "player_sent": 400,
+  "player_passed": 400,
+  "rule_hits": 3000,
+  "sources_true": 500,
+  "sources_estimated": 506,
+  "classified_as": "CLDAP amplification flood",
+  "dry_run_dropped": 0
+}

@@ -1,0 +1,176 @@
+{
+  "summary": {
+    "model": "gpt-4o-mini",
+    "explanations": 13,
+    "numeric_grounding": 1.0,
+    "numbers_checked": 49,
+    "hallucinated_numbers": 0,
+    "fully_grounded": 1.0,
+    "label_accuracy": 1.0,
+    "chat_accuracy": 1.0,
+    "latency_median_s": 1.5688100499974098,
+    "latency_p95_s": 2.721542200015392,
+    "tokens_in_avg": 393.4375,
+    "tokens_out_avg": 77.6875,
+    "cost_per_explanation_usd": 8.170384615384615e-05,
+    "total_cost_usd": 0.00169005
+  },
+  "explanations": [
+    {
+      "case": "cldap",
+      "text": "Your game server experienced a DDoS attack known as a CLDAP amplification flood, where it received a high volume of malicious traffic from over 2,200 sources. ShieldWall detected and mitigated this attack within a few seconds, successfully serving 98.3% of legitimate traffic, so your players were not affected. No action is needed on your part, as the incident has been resolved.",
+      "numbers": 2,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 2.721542200015392,
+      "tokens_in": 223,
+      "tokens_out": 80
+    },
+    {
+      "case": "dns",
+      "text": "Your game server experienced a DNS amplification flood attack, where a large volume of malicious traffic peaked at 162,053 packets per second from 2,435 different sources. ShieldWall detected the attack within 2 seconds and mitigated it in 3 seconds, ensuring that 98.5% of legitimate traffic was still served. There is no action needed from you, as the incident has been resolved and players were not affected.",
+      "numbers": 5,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 1.7077317000366747,
+      "tokens_in": 220,
+      "tokens_out": 86
+    },
+    {
+      "case": "ntp",
+      "text": "Your game server experienced a DDoS attack known as an NTP amplification flood, where it received a high volume of malicious traffic peaking at 129,812 packets per second from 1,570 different sources. ShieldWall detected and mitigated the attack quickly, ensuring that 98.8% of legitimate traffic was still served, so your players were not affected. No action is needed on your part, as the issue has been resolved.",
+      "numbers": 3,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 2.149730000004638,
+      "tokens_in": 223,
+      "tokens_out": 90
+    },
+    {
+      "case": "syn",
+      "text": "Your game server experienced a TCP SYN flood attack, where 2,490 sources attempted to overwhelm the server with connection requests, peaking at 159,402 packets per second. ShieldWall detected the attack quickly and mitigated it within 3 seconds, allowing 98.4% of legitimate traffic to be served without significant impact on players. No action is needed from you at this time, as the incident has been resolved.",
+      "numbers": 4,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 1.469299399992451,
+      "tokens_in": 227,
+      "tokens_out": 86
+    },
+    {
+      "case": "udp",
+      "text": "Your game server experienced a UDP flood attack, with a peak of 131,378 packets per second coming from 2,479 different sources. ShieldWall detected the attack quickly and mitigated it within 3 seconds, allowing 99.1% of legitimate traffic to continue unaffected. There\u2019s no action needed from you at this time, as the incident has been resolved.",
+      "numbers": 4,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 1.5074822999886237,
+      "tokens_in": 223,
+      "tokens_out": 75
+    },
+    {
+      "case": "flash_crowd",
+      "text": "The incident was a legitimate traffic surge, not a DDoS attack, with a peak of 7395 packets per second from 1882 sources. ShieldWall monitored the situation for 3 seconds and confirmed that all handshakes completed normally, ensuring that 100% of the traffic was served without any disruption to players. There is no action needed from you at this time.",
+      "numbers": 4,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 1.3299480000277981,
+      "tokens_in": 227,
+      "tokens_out": 77
+    },
+    {
+      "case": "mega_cldap",
+      "text": "Your game server experienced a DDoS attack known as a CLDAP amplification flood, where it received a peak of 936,014 packets per second from 2,170 different sources. ShieldWall detected the attack within 2 seconds and mitigated it in 3 seconds, allowing 68.1% of legitimate traffic to be served. No action is required from you at this time, as the incident has been resolved.",
+      "numbers": 5,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 2.0899782000342384,
+      "tokens_in": 223,
+      "tokens_out": 86
+    },
+    {
+      "case": "cldap",
+      "text": "Your game server experienced a DDoS attack known as a CLDAP amplification flood, where it received a peak of 209,341 packets per second from 2,372 different sources. ShieldWall detected the attack and mitigated it within 3 seconds, allowing 98.4% of legitimate traffic to be served without significant impact on your players. No action is required from you at this time, as the incident has been resolved.",
+      "numbers": 4,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 1.630137800006196,
+      "tokens_in": 223,
+      "tokens_out": 88
+    },
+    {
+      "case": "dns",
+      "text": "Your game server experienced a DNS amplification flood attack, where 99% of the traffic was malicious UDP responses from 2,525 distinct sources. ShieldWall detected the attack within 2 seconds and mitigated it in 3 seconds, ensuring that 98.5% of legitimate traffic was still served. There is no action needed on your part, and players were not affected.",
+      "numbers": 5,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 1.6414696000283584,
+      "tokens_in": 220,
+      "tokens_out": 76
+    },
+    {
+      "case": "ntp",
+      "text": "Your game server experienced an NTP amplification flood attack, where a large volume of malicious traffic peaked at 125,476 packets per second from 1,584 different sources. ShieldWall detected and mitigated the attack quickly, maintaining 98.9% service availability for your players. No action is needed on your part, as the incident has been resolved.",
+      "numbers": 3,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 1.3244522000313736,
+      "tokens_in": 223,
+      "tokens_out": 72
+    },
+    {
+      "case": "syn",
+      "text": "Your game server experienced a TCP SYN flood attack, where a large number of connection attempts were made without completing the handshake, peaking at over 160,000 packets per second from numerous unknown sources. ShieldWall detected the attack within 2 seconds and mitigated it in 3 seconds, allowing 98.5% of legitimate traffic to continue without significant disruption. There is no action needed from you, as the incident has been resolved.",
+      "numbers": 4,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 1.8600035000126809,
+      "tokens_in": 227,
+      "tokens_out": 88
+    },
+    {
+      "case": "udp",
+      "text": "We experienced a UDP flood attack on your game server, with a peak packet rate of 129,298 packets per second from 2,468 different sources. ShieldWall detected and mitigated the attack quickly, maintaining 99.1% uptime for your server. No action is needed on your part, as the issue has been resolved.",
+      "numbers": 3,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 1.3410048999940045,
+      "tokens_in": 223,
+      "tokens_out": 68
+    },
+    {
+      "case": "mega_cldap",
+      "text": "Your game server experienced a DDoS attack known as a CLDAP amplification flood, peaking at over 936,000 packets per second from 2,195 sources. ShieldWall detected and mitigated the attack, allowing 69.7% of legitimate traffic to be served. No action is needed on your part, as the incident has been resolved.",
+      "numbers": 3,
+      "ungrounded": [],
+      "label_ok": true,
+      "latency_s": 1.4363718999666162,
+      "tokens_in": 223,
+      "tokens_out": 72
+    }
+  ],
+  "chat": [
+    {
+      "question": "Why did you block port 389?",
+      "answer": "Port 389 was blocked because your server was targeted in a CLDAP amplification flood attack. This attack involved a large volume of UDP traffic from that port, which was not initiated by your server but rather reflected replies from other sources. Blocking this port helps prevent such attacks from affecting your server.",
+      "correct": true,
+      "latency_s": 1.3361518000019714,
+      "tokens_in": 1132,
+      "tokens_out": 58
+    },
+    {
+      "question": "What attacks happened?",
+      "answer": "Your server experienced two attacks:\n\n1. A **TCP SYN flood** attack from about 2,468 sources, peaking at 158,720 packets per second. This attack lasted from 151 seconds to 182 seconds.\n   \n2. A **CLDAP amplification flood** attack from about 2,285 sources, peaking at 212,590 packets per second. This attack lasted from 41 seconds to 72 seconds.\n\nBoth attacks were mitigated by ShieldWall within 3 seconds of detection, allowing 98% of real player traffic to get through.",
+      "correct": true,
+      "latency_s": 1.7732481999555603,
+      "tokens_in": 1128,
+      "tokens_out": 115
+    },
+    {
+      "question": "How many attacks were there?",
+      "answer": "There were two attacks on your server. The first was a CLDAP amplification flood, and the second was a TCP SYN flood.",
+      "correct": true,
+      "latency_s": 0.9817592999897897,
+      "tokens_in": 1130,
+      "tokens_out": 26
+    }
+  ]
+}
