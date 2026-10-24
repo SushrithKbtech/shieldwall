@@ -203,6 +203,7 @@ controlplane/shieldwall/
 tests/                        unit, end-to-end and kernel tests
 results/                      latest evaluation and metrics
 docs/SCRIPT.md                presentation script
+docs/ShieldWall_presentation  slides (.pptx and .pdf)
 ```
 
 ## Known limits
@@ -215,3 +216,12 @@ docs/SCRIPT.md                presentation script
 ## Safety and ethics
 
 All attack traffic is generated inside an isolated lab with no route to the internet. Never point attack tools at anything you don't own, and never use stresser services.
+
+## Team RSST
+
+| Name | USN |
+|---|---|
+| Rohit Jaysheel Diggi | 1RVU23CSE384 |
+| Saran Chekka | 1RVU23CSE411 |
+| Sushrith Kandagatla | 1RVU23CSE489 |
+| Tamish Sridatta Billa | 1RVU23CSE498 |
