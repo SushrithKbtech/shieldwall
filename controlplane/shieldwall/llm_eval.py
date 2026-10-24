@@ -15,6 +15,7 @@ prompt to the model and score every answer automatically:
 """
 from __future__ import annotations
 
+import collections
 import json
 import os
 import re
@@ -22,7 +23,7 @@ import statistics
 import time
 
 from .engine import Engine
-from .llm import SYSTEM, chat_prompt, incident_prompt
+from .llm import FIELD_GUIDE, SYSTEM, chat_prompt, incident_prompt
 from .simulator import SimConfig
 
 PRICE_IN, PRICE_OUT = 0.15, 0.60  # gpt-4o-mini, USD per million tokens
@@ -76,6 +77,36 @@ def call(prompt: str) -> tuple[str, dict]:
     }
 
 
+JUDGE_SCHEMA = {
+    "type": "object", "additionalProperties": False, "required": ["claims"],
+    "properties": {"claims": {"type": "array", "items": {
+        "type": "object", "additionalProperties": False, "required": ["claim", "verdict"],
+        "properties": {"claim": {"type": "string"},
+                       "verdict": {"type": "string", "enum": ["supported", "misattributed", "unsupported"]}}}}},
+}
+
+
+def judge(facts: dict, text: str) -> tuple[list[dict], dict]:
+    """LLM-as-judge: is every claim backed by the facts, with the right meaning?"""
+    from openai import OpenAI
+
+    client = OpenAI(timeout=60)
+    r = client.chat.completions.create(
+        model=os.environ.get("SHIELDWALL_OPENAI_MODEL", "gpt-4o-mini"), temperature=0, max_tokens=700,
+        response_format={"type": "json_schema", "json_schema": {"name": "judge", "strict": True, "schema": JUDGE_SCHEMA}},
+        messages=[
+            {"role": "system", "content": "You are a strict fact-checker. Split the explanation into its factual claims. "
+                                          "Label each: supported (the facts say this, with this meaning), misattributed "
+                                          "(uses a real number or fact but with the wrong meaning), or unsupported "
+                                          "(not in the facts). Generic reassurance like 'no action needed' counts as "
+                                          "supported only if the facts imply it."},
+            {"role": "user", "content": f"{FIELD_GUIDE}\nFacts (JSON): {json.dumps(facts, default=str)}\n\nExplanation: {text}"},
+        ],
+    )
+    return json.loads(r.choices[0].message.content)["claims"], {
+        "tokens_in": r.usage.prompt_tokens, "tokens_out": r.usage.completion_tokens}
+
+
 def incident_facts(preset: str, seed: int) -> dict | None:
     """Run one scenario through the engine and capture the final facts the LLM is given."""
     eng = Engine(sim_cfg=SimConfig(seed=seed), explain_async=False)
@@ -91,6 +122,7 @@ def incident_facts(preset: str, seed: int) -> dict | None:
 def main(out_path: str | None = None) -> dict:
     if not os.environ.get("OPENAI_API_KEY"):
         raise SystemExit("llm-eval needs OPENAI_API_KEY")
+    os.environ["SHIELDWALL_LLM"] = "openai"  # the report/suggestion step must use the model being evaluated
     rows = []
     for seed, preset in enumerate(CASES * 2, start=1):
         facts = incident_facts(preset, seed)
@@ -105,8 +137,9 @@ def main(out_path: str | None = None) -> dict:
             label_ok = any(w in low for w in ("legitimate", "real player", "genuine")) and "blocked" not in low
         else:
             label_ok = any(w in low for w in LABEL_WORDS[preset])
+        claims, judge_usage = judge(facts, text)
         rows.append({"case": preset, "text": text, "numbers": len(nums), "ungrounded": bad,
-                     "label_ok": label_ok, **usage})
+                     "label_ok": label_ok, "claims": claims, "judge_usage": judge_usage, **usage})
 
     # chat over the event log: two attacks, then three questions with known answers
     eng = Engine(sim_cfg=SimConfig(seed=99), explain_async=False)
@@ -124,13 +157,42 @@ def main(out_path: str | None = None) -> dict:
         answer, usage = call(chat_prompt(q, eng.store))
         chats.append({"question": q, "answer": answer, "correct": check(answer), **usage})
 
+    # LLM rule suggestions, checked by the controller
+    from .llm_report import incident_report
+    suggestions = []
+    for seed, preset in enumerate(["cldap", "dns", "syn", "udp", "mega_cldap"], start=200):
+        e = Engine(sim_cfg=SimConfig(seed=seed), explain_async=False)
+        e.launch(preset, duration=40, start=40)
+        for _ in range(60):
+            e.step()
+        rep = incident_report(e)
+        for sug in rep.get("suggestions", []):
+            suggestions.append({"case": preset, **sug})
+        chats.append({"question": f"[report] {preset}", "answer": rep.get("markdown", ""), "correct": True,
+                      "latency_s": 0.0, **rep.get("usage", {"tokens_in": 0, "tokens_out": 0})})
+
     calls = rows + chats
     total_nums = sum(r["numbers"] for r in rows)
     total_bad = sum(len(r["ungrounded"]) for r in rows)
-    lat = sorted(c["latency_s"] for c in calls)
+    lat = sorted(c["latency_s"] for c in calls if not str(c.get("question", "")).startswith("[report]"))
     cost = sum(c["tokens_in"] * PRICE_IN + c["tokens_out"] * PRICE_OUT for c in calls) / 1e6
     expl_cost = [(r["tokens_in"] * PRICE_IN + r["tokens_out"] * PRICE_OUT) / 1e6 for r in rows]
+    real_chats = [c for c in chats if not c["question"].startswith("[report]")]
+    all_claims = [c for r in rows for c in r["claims"]]
+    verdicts = collections.Counter(c["verdict"] for c in all_claims)
+    judge_cost = sum(r["judge_usage"]["tokens_in"] * PRICE_IN + r["judge_usage"]["tokens_out"] * PRICE_OUT for r in rows) / 1e6
+    accepted = [x for x in suggestions if x["accepted"]]
     summary = {
+        "claims_checked": len(all_claims),
+        "claims_supported": verdicts["supported"] / len(all_claims) if all_claims else 1.0,
+        "claims_misattributed": verdicts["misattributed"],
+        "claims_unsupported": verdicts["unsupported"],
+        "fully_faithful": sum(all(c["verdict"] == "supported" for c in r["claims"]) for r in rows) / len(rows),
+        "suggestions": len(suggestions),
+        "suggestions_accepted": len(accepted),
+        "suggestion_reject_reasons": dict(collections.Counter(x["verdict"].split(":")[1].strip().split(" (")[0]
+                                                              if ":" in x["verdict"] else x["verdict"]
+                                                              for x in suggestions if not x["accepted"])),
         "model": os.environ.get("SHIELDWALL_OPENAI_MODEL", "gpt-4o-mini"),
         "explanations": len(rows),
         "numeric_grounding": 1 - total_bad / total_nums if total_nums else 1.0,
@@ -138,15 +200,16 @@ def main(out_path: str | None = None) -> dict:
         "hallucinated_numbers": total_bad,
         "fully_grounded": sum(not r["ungrounded"] for r in rows) / len(rows),
         "label_accuracy": sum(r["label_ok"] for r in rows) / len(rows),
-        "chat_accuracy": sum(c["correct"] for c in chats) / len(chats),
+        "chat_accuracy": sum(c["correct"] for c in real_chats) / len(real_chats),
         "latency_median_s": statistics.median(lat),
         "latency_p95_s": lat[min(len(lat) - 1, int(0.95 * len(lat)))],
         "tokens_in_avg": statistics.mean(c["tokens_in"] for c in calls),
         "tokens_out_avg": statistics.mean(c["tokens_out"] for c in calls),
         "cost_per_explanation_usd": statistics.mean(expl_cost),
-        "total_cost_usd": cost,
+        "total_cost_usd": cost + judge_cost,
     }
-    report = {"summary": summary, "explanations": rows, "chat": chats}
+    report = {"summary": summary, "explanations": rows, "chat": [c for c in chats if not c["question"].startswith("[report]")],
+              "suggestions": suggestions}
 
     lines = [
         f"# LLM evaluation ({summary['model']})",
@@ -161,6 +224,10 @@ def main(out_path: str | None = None) -> dict:
         f"| Explanations with zero hallucinated numbers | {summary['fully_grounded']:.0%} |",
         f"| Names the correct attack / calls a surge legitimate | {summary['label_accuracy']:.0%} |",
         f"| Chat answers correct | {summary['chat_accuracy']:.0%} |",
+        f"| Claims judged supported, with the right meaning (LLM-as-judge) | {summary['claims_supported']:.0%} "
+        f"({verdicts['supported']}/{len(all_claims)}; misattributed {verdicts['misattributed']}, unsupported {verdicts['unsupported']}) |",
+        f"| Explanations where every claim is supported | {summary['fully_faithful']:.0%} |",
+        f"| Rule suggestions accepted by the controller | {len(accepted)}/{len(suggestions)} (all accepted ones start in dry-run) |",
         f"| Latency median / p95 | {summary['latency_median_s']:.1f} s / {summary['latency_p95_s']:.1f} s |",
         f"| Tokens per call (in / out) | {summary['tokens_in_avg']:.0f} / {summary['tokens_out_avg']:.0f} |",
         f"| Cost per explanation | ${summary['cost_per_explanation_usd']:.5f} |",

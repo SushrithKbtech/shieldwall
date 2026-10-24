@@ -3,7 +3,7 @@
 **An automatic, self-explaining bouncer for small servers.**
 ShieldWall watches all traffic to one server, detects a DDoS attack in about 2 seconds, drops the attack traffic in the Linux kernel while real players keep playing, and explains in plain English what happened.
 
-`C (eBPF/XDP) drops · Python decides · the LLM explains · SQLite remembers`
+`C (eBPF/XDP) drops · Python decides · the LLM explains and suggests · SQLite remembers`
 
 ![ShieldWall live monitor during a CLDAP amplification attack](docs/tab_live.png)
 
@@ -11,75 +11,107 @@ The dashboard has three tabs, written so anyone can follow along:
 
 | Live monitor | How it works | Results |
 |---|---|---|
-| Plain-English status ("Under attack: CLDAP amplification flood. ShieldWall is blocking it."), a 5-step tracker, the three alarms, what is being blocked, a timeline, and the AI assistant | Each model explained with a question, an everyday analogy and its live value | Accuracy, precision, recall, F1, confusion matrix, per-attack detection, with vs without ShieldWall, kernel test and LLM evaluation |
+| Plain-English status ("Under attack: CLDAP amplification flood. ShieldWall is blocking it."), a 5-step tracker, the three alarms, what is being blocked, a timeline, the AI assistant and incident reports | Each model explained with a question, an everyday analogy and its live value | Real attack data, simulated-lab accuracy, precision, recall and F1, kernel test and LLM evaluation |
 | ![Live](docs/tab_live.png) | ![How it works](docs/tab_how.png) | ![Results](docs/tab_results.png) |
 
 ## Highlights
 
-- **Kernel-speed blocking.** An eBPF/XDP program drops attack packets inside the NIC driver, before the kernel network stack does any work.
-- **No fixed thresholds.** Three statistical detectors vote (EWMA z-score, CUSUM, entropy), with persistence and absolute-floor guards against false alarms.
-- **Knows what hit you.** Fingerprints DNS, NTP and CLDAP amplification, SYN floods and UDP floods, and tells a real rush of players apart from an attack.
+- **Kernel-speed blocking.** An eBPF/XDP program drops attack packets inside the NIC driver, before the kernel network stack does any work. Tested on a real Linux kernel.
+- **No fixed thresholds, no training.** Three statistical detectors vote (EWMA z-score, CUSUM, entropy) and learn each server's normal traffic live, with persistence and absolute-floor guards against false alarms.
+- **Knows what hit you.** Fingerprints DNS, NTP, CLDAP and Memcached amplification (including multi-vector attacks), SYN floods, UDP floods and single-host floods, and tells a real rush of players apart from an attack.
+- **Handles what real attacks look like.** IP fragments with no ports, several reflection vectors at once, and one machine sending most of the traffic (Count-Min Sketch heavy hitter), all found by replaying real attack data.
 - **Safe by design.** Every rule expires, an allowlist is never dropped, the rule count is capped, and a dry-run mode logs without dropping.
-- **Grows with your server.** A sustained legitimate surge becomes the new normal, so busy evenings don't trigger alerts.
-- **Escalates when the pipe is full.** If a flood exceeds the uplink, the drop rule is announced upstream as BGP FlowSpec.
-- **Explains itself.** gpt-4o-mini turns each incident into a plain-English summary and answers questions from the event log, grounded only in verified facts. It never makes a blocking decision, and its answers are evaluated for hallucinations.
-- **No training needed.** The detectors learn what normal traffic looks like from the first seconds of traffic and keep adapting.
+- **Grows with your server.** A sustained legitimate surge becomes the new normal.
+- **Explains and suggests, never blocks.** gpt-4o-mini writes plain-English summaries, answers questions from the event log and drafts incident reports with suggested rules. The controller tests every suggestion against real traffic and installs only safe ones, in dry-run. The LLM's answers are evaluated for hallucinations and faithfulness.
 
 ## Results
 
-### Detection quality: 60 randomized trials
+Three kinds of evidence, labelled clearly:
 
-52 attacks (CLDAP, DNS, NTP, SYN, UDP at 3k-300k pps, random timing and ramp) and 8 negatives (flash crowds of real players, quiet traffic). Full report: [results/metrics.md](results/metrics.md).
-
-| Level | Accuracy | Precision | Recall | F1 |
-|---|---|---|---|---|
-| Per 1-second window | 97.96% | **100%** | 94.98% | 0.974 |
-| Per packet dropped | 96.81% | **100%** | 96.45% | 0.982 |
-| Per attack (incident) | 98.33% | **100%** | 98.08% | 0.990 |
-
-- **Zero false positives**: no flash crowd or quiet run was ever mitigated; 0.015% of real traffic was dropped across all trials.
-- **100%** attack-type classification accuracy on caught attacks; median time to detect **2 s**.
-- Window recall is below 100% by design: the 2-window persistence guard counts the first seconds of every attack as misses. That guard is what keeps precision at 100%.
-
-**What the metrics mean.** *Precision*: when ShieldWall says "attack", how often it really is one (low precision means blocking real players). *Recall*: of all real attack time, how much it caught. *F1*: the balance of the two. Ground truth comes from the traffic generator, which knows exactly when each attack runs.
-
-### Four scenarios, with vs without ShieldWall
-
-Same seeded traffic, once enforcing and once in dry-run ("without"). ~2,000 pps of Minecraft players, server capacity 60k pps, 10 Gbps uplink. Full report: [results/results.md](results/results.md).
-
-| Scenario | Classified as | Real traffic served WITHOUT | WITH | Detect | Mitigate |
-|---|---|---|---|---|---|
-| S1 Clean attack (CLDAP amplification, 200k pps) | CLDAP amplification | 30.2% | **98.1%** | 2 s | 3 s |
-| S2a Mixed with real traffic (SYN flood on the game port) | TCP SYN flood | 40.1% | **98.7%** | 2 s | 3 s |
-| S2b Mixed with real traffic (UDP flood) | UDP flood | 50.3% | **99.3%** | 2 s | 3 s |
-| S3 Legit surge, no attack (flash crowd) | legitimate surge | 100% | **100%, 0 rules** | 3 s | n/a |
-| S4 Bigger than the link (25 Gbps into 10 Gbps) | CLDAP amplification | 2.8% | **95.7%** (FlowSpec upstream) | 2 s | 4 s |
-
-### The LLM: is it correct, fast and cheap?
-
-`shieldwall llm-eval` sends the exact production prompts for 13 real incidents and 3 chat questions to gpt-4o-mini and scores every answer automatically. Full report: [results/llm_eval.md](results/llm_eval.md).
-
-| Metric | Result |
+| Evidence | What it is |
 |---|---|
-| Numbers in its answers that match the facts it was given (hallucination check) | **100%** (49/49, zero made-up numbers) |
-| Names the correct attack, or calls a surge real players | **100%** |
-| Chat answers over the event log that contain the right answer | **100%** |
-| Median latency (runs in the background, never delays blocking) | 1.6 s |
-| Cost per explanation | $0.00008 |
+| **Real attack data** | Public captures of real-world attacks and the CIC-DDoS2019 dataset, which we did not create, replayed through the engine |
+| **Real Linux kernel** | The XDP program loaded on a Linux interface, with real packets sent through it |
+| **Simulated lab** | Our traffic generator, where the right answer is known for every second. Players, the game server's capacity and the upstream provider are modelled here |
 
-### On a real Linux kernel
+### 1. Real attack data
 
-[tests/xdp_kernel_test.sh](tests/xdp_kernel_test.sh) loads the XDP program on a veth interface, replays a CLDAP reflection flood from 500 spoofed sources with scapy, and runs the live control plane against the real BPF maps:
+Real attack traffic replayed at its real packet rate for 30 s, mixed into modelled player traffic (~2,000 pps); ground truth is which packets came from the attack data. Full reports: [results/replay.md](results/replay.md), [results/replay_cic.md](results/replay_cic.md).
+
+| Attack data | Inside | Identified as | Detected | Blocked | Attack dropped once blocking | Real traffic dropped | Players served (without → with) | Precision / recall / F1 (per second) |
+|---|---|---|---|---|---|---|---|---|
+| Public capture amp.UDP.DNSANY.pcap | 20,889 pps, 79 sources, 24% fragments | DNS amplification flood | 2 s | 3 s | **98.5%** | 0.000% | 100.0% → **100.0%** | 1.00 / 0.97 / 0.98 |
+| Public capture pkt.TCP.synflood.spoofed.pcap | 1,598 pps, 37,623 sources | TCP SYN flood | 2 s | 3 s | **93.7%** | 0.018% | 100.0% → **99.9%** | 1.00 / 0.97 / 0.98 |
+| Public capture amp.UDP.memcached.ntp.cldap.pcap | 103,484 pps, 1,992 sources, 14% fragments | multi-vector amplification (Memcached, NTP, DNS) | 2 s | 3 s | **96.0%** | 0.000% | 56.9% → **97.3%** | 1.00 / 0.97 / 0.98 |
+| CIC-DDoS2019 01-12/Syn.csv | 40,853 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 100.0% → **100.0%** | 1.00 / 0.97 / 0.98 |
+| CIC-DDoS2019 01-12/DrDoS_NTP.csv | 214,772 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 27.7% → **95.5%** | 1.00 / 0.97 / 0.98 |
+| CIC-DDoS2019 01-12/DrDoS_LDAP.csv | 19,309 pps, 1 source | flood from a single host (172.16.0.5) | 2 s | 3 s | **100.0%** | 0.000% | 100.0% → **100.0%** | 1.00 / 0.97 / 0.98 |
+
+**Public captures** come from [StopDDoS/packet-captures](https://github.com/StopDDoS/packet-captures) ("packet captures of real-world ddos attacks"; free to use for building DDoS protection). **CIC-DDoS2019** is the CSV release (CICFlowMeter flow records): for each file, the busiest 30 s of attack flows were rebuilt into packets with their real addresses, ports, protocols, packet counts, sizes and timing. Only the spacing of packets inside a flow is approximated.
+
+**What real data taught us (and what we fixed):**
+- **Fragments.** Real amplification floods are 14-24% IP fragments, which carry no port numbers. A port rule let them through, so ShieldWall now adds a fragment rule, in the simulator and in the XDP program.
+- **Multi-vector attacks.** The memcached capture mixes Memcached, NTP and DNS reflection at once. ShieldWall now writes a rule for every vector, not just the biggest.
+- **Single-host floods.** Every CIC-DDoS2019 attack comes from one machine (172.16.0.5), and its "DrDoS" attacks don't use the reflection port. Fingerprints missed two of the three, so the Count-Min Sketch heavy hitter now blocks a single never-seen flooding address.
+- **Low-rate SYN floods.** A real 1.6k pps SYN flood showed our SYN thresholds were too strict and the rate limit too loose. Both were tightened (still a 10x margin above normal traffic).
+
+### 2. Real Linux kernel
+
+[tests/xdp_kernel_test.sh](tests/xdp_kernel_test.sh) loads the XDP program on a veth interface (Linux 6.18, WSL2), sends real packets with scapy and runs the live control plane against the real BPF maps:
 
 ```
 normal window : 400 pkts, amp share 0%, 20 sources
 attack window : 3000 pkts, amp share 100% from port 389, ~506 sources -> CLDAP amplification flood
 with rule     : kernel dropped 3000 attack pkts, passed 400 player pkts, rule hits 3000
+fragments     : kernel saw 1000 fragments, dropped 1000
+heavy hitter  : blocklist dropped 2000 packets from 45.30.0.9, passed 300 others
 dry-run       : dropped 0 (should be 0)
 KERNEL TEST PASSED
 ```
 
-The program passes the kernel verifier and is JIT-compiled (tested on Linux 6.18).
+The program passes the kernel verifier and is JIT-compiled.
+
+### 3. Simulated lab
+
+**200 randomized trials**, half attacks (CLDAP, DNS, NTP, SYN, UDP at 3k-300k pps, random timing and ramp) and half not (flash crowds of real players, quiet traffic). Full report: [results/metrics.md](results/metrics.md).
+
+| Level | Accuracy | Precision | Recall | F1 |
+|---|---|---|---|---|
+| Per 1-second window | 98.668% | **100%** | 94.437% | 0.971 |
+| Per packet dropped | 97.215% | **99.998%** | 96.642% | 0.983 |
+| Per attack (incident) | 99.000% | **100%** | 98.131% | 0.991 |
+
+- **0 of 93** non-attacks (flash crowds and quiet runs) were wrongly mitigated; 0.009% of real traffic was dropped across all trials.
+- 100% attack-type accuracy on caught attacks; median time to detect 2 s; 105/107 attacks caught (the misses were the weakest, close to normal volume).
+
+**What the metrics mean.** *Precision*: when ShieldWall says "attack", how often it really is one (low precision means blocking real players). *Recall*: of all real attack time, how much it caught. *F1*: the balance of the two. Per-second recall is below 100% by design: the 2-second persistence guard counts the first seconds of every attack as misses, and that guard is what keeps false alarms at zero.
+
+**Four scenarios, with vs without ShieldWall** (same seeded traffic; ~2,000 pps of players, server capacity 60k pps, 10 Gbps uplink). Full report: [results/results.md](results/results.md).
+
+| Scenario | Classified as | Real traffic served WITHOUT | WITH | Detect | Mitigate |
+|---|---|---|---|---|---|
+| S1 Clean attack: CLDAP amplification | CLDAP amplification flood | 30.2% | **98.1%** | 2 s | 3 s |
+| S2a Attack mixed with real traffic: SYN flood on the game port | TCP SYN flood | 40.1% | **98.7%** | 2 s | 3 s |
+| S2b Attack mixed with real traffic: UDP flood | UDP flood | 50.3% | **99.3%** | 2 s | 3 s |
+| S3 Legitimate spike, no attack (flash crowd) | legitimate traffic surge | 100.0% | **100.0%** | 3 s | n/a |
+| S4 Attack bigger than the link (25 Gbps into 10 Gbps) | CLDAP amplification flood | 2.8% | **95.7%** (via simulated provider) | 2 s | 4 s |
+
+### 4. The LLM: is it correct, fast and cheap?
+
+`shieldwall llm-eval` sends the exact production prompts for real engine incidents to gpt-4o-mini and scores the answers automatically. Full report: [results/llm_eval.md](results/llm_eval.md).
+
+| Metric | Prompt v1 | Final prompt |
+|---|---|---|
+| Numbers that match the facts (hallucination check) | 58/58 | **61/61** |
+| Claims judged supported with the right meaning (LLM-as-judge) | 92% | **100%** |
+| Explanations where every claim is supported | 62% | **100%** |
+| Names the correct attack, or calls a surge real players | 100% | **100%** |
+| Chat answers over the event log that contain the right answer | 100% | **100%** |
+| Rule suggestions accepted by the controller (in dry-run) | 0/15 | **7/12** |
+| Median latency (background, never delays blocking) | 1.4 s | **1.5 s** |
+| Cost per explanation | $0.00010 | **$0.00011** |
+
+**What changed, based on what the evaluation found.** Prompt v1 over-claimed ("98% got through *without any impact*"), once called a UDP flood "not malicious", and kept suggesting blocks on single reflector addresses that each sent ~0.1% of a distributed attack, which the controller rejected. The final prompt tells the model to state numbers exactly, gives it each top sender's share of the traffic (source blocks only above 20%), and adds plain status fields (`incident_over`, `blocking_now`) after a live run showed it confusing "not over yet" with "not blocked". The controller also gained a rule the evaluation motivated: no drop rules on the game's own ports, only rate limits. The judge is the same model family, so it is a check, not proof. Reports: [v1](results/llm_eval_prompt_v1.md), [final](results/llm_eval.md).
 
 ## How it works
 
@@ -90,7 +122,7 @@ The program passes the kernel verifier and is JIT-compiled (tested on Linux 6.18
   KERNEL  (C / eBPF)  +-------------------------------------+
   data plane          |  XDP program: parse -> count -> drop |  every packet, microseconds
                       +-------------------------------------+
-                           |  counter maps     ^  rule maps
+                           |  counter maps     ^  rule maps + blocklist
                            v  (read)           |  (write)
   USERSPACE (Python)  +-------------------------------------+
   control plane       |  featurise -> detect -> classify ->  |  once a second
@@ -98,54 +130,44 @@ The program passes the kernel verifier and is JIT-compiled (tested on Linux 6.18
                       +-------------------------------------+
                            |                    |
                     LLM assistant          SQLite event log -> dashboard
-                    (explains, never blocks)
+             (explains, suggests; the controller validates; never blocks)
 ```
 
 **Two clocks.** The kernel does the cheap, high-volume work (count and drop) on every packet. Userspace does the expensive thinking (detect and decide) once a second. BPF maps are the only bridge.
 
 ### 1. Data plane: [bpf/xdp_filter.c](bpf/xdp_filter.c)
-Four jobs only: parse headers, count into maps, check allowlist and rules, drop or pass. It counts *before* dropping, so the detector keeps seeing an attack while it's being blocked. Maps: `stats`, `src_count`, `udp_sport_count`, `rules` (capped at 64), `allowlist` (LPM trie), `trusted`, `config` (enforce / dry-run).
+Parse headers, count into maps, check allowlist, blocklist and rules, drop or pass. It counts *before* dropping, so the detector keeps seeing an attack while it's being blocked, and it recognises IP fragments (which have no ports). Maps: `stats`, `src_count`, `udp_sport_count`, `rules` (capped at 64), `blocklist` and `allowlist` (LPM tries), `trusted`, `config` (enforce / dry-run).
 
 ### 2. Detection: three methods vote ([detectors.py](controlplane/shieldwall/detectors.py))
 | Method | Formula | Catches |
 |---|---|---|
 | EWMA baseline + z-score | `z = (x - mu) / sigma` | sudden spikes |
 | CUSUM | `S_t = max(0, S_{t-1} + z_t - k)` | slow ramps a single z-score misses |
-| Entropy | `H = -sum p_i log2 p_i` over source IPs | botnets spreading traffic across new sources |
+| Entropy | `H = -sum p_i log2 p_i` over source IPs | sudden changes in how spread out the senders are |
 
-An alert needs 2 of 3 votes, must persist for 2 windows, and must clear an absolute floor (a 3 a.m. blip from 10 to 30 pps never fires). The baseline freezes during anomalies so an attack never becomes "normal"; only a surge confirmed as legitimate for 30 s is adopted as the new baseline.
+An alert needs 2 of 3 votes, must persist for 2 windows, and must clear an absolute floor. The baseline freezes during anomalies so an attack never becomes "normal"; only a surge confirmed as legitimate for 30 s is adopted as the new baseline.
 
 ### 3. Probabilistic data structures ([sketches.py](controlplane/shieldwall/sketches.py))
 | Structure | Question | Memory |
 |---|---|---|
-| Count-Min Sketch | who are the top talkers? | 64 KB |
+| Count-Min Sketch | who are the top talkers? (and is one host flooding us?) | 64 KB |
 | HyperLogLog | how many unique sources? | 1 KB, ~3% error |
 | Bloom filter | have I seen this source before? | ~240 KB for 200k sources |
 
 ### 4. Classify by fingerprint ([classifier.py](controlplane/shieldwall/classifier.py))
 | Attack | Fingerprint |
 |---|---|
-| DNS / NTP / CLDAP amplification | UDP arriving *from* a service port the server never uses (53, 123, 389...) |
-| SYN flood | SYNs outnumber ACKs (normal is about 1 SYN per 100 ACKs) |
-| UDP flood | UDP share jumps, mostly never-seen sources, sprayed ports |
+| DNS / NTP / CLDAP / Memcached amplification | UDP arriving *from* service ports the server never uses (one or several at once), plus fragments of oversized replies |
+| SYN flood | SYNs at more than half the ACK rate (normal is about 1 per 100) |
+| Single-host flood | one never-seen address sends most of the traffic |
+| UDP flood | UDP share jumps, mostly never-seen sources |
 | Legit surge | volume up, but handshakes complete and the protocol mix is normal |
 
 ### 5. Mitigation ([mitigation.py](controlplane/shieldwall/mitigation.py))
-Signature drop for clean fingerprints, token-bucket rate limit for the rest (sources that completed handshakes in calm times keep passing). Every rule expires after 60 s and is renewed only while it still matches traffic. Graduated response: observe, rate-limit, drop, escalate. If the link itself is full for 3 windows, the drop rule goes upstream as BGP FlowSpec.
+A signature drop per attack vector, a fragment rule, a heavy-hitter block, or a token-bucket rate limit for unknown sources (sources that completed handshakes in calm times keep passing). Every rule expires after 60 s unless it still matches traffic. If the link itself is full for 3 windows, the drop rule is escalated upstream as BGP FlowSpec. **This escalation is simulated**: the simulator plays the provider; there is no BGP speaker in this build.
 
-### 6. LLM layer ([llm.py](controlplane/shieldwall/llm.py))
-Runs in a background thread, off the hot path, so blocking never waits for it (an explanation takes ~2-3 s; blocking takes milliseconds). Backends, picked automatically from the keys you have:
-
-| Backend | Setup | Notes |
-|---|---|---|
-| OpenAI `gpt-4o-mini` (default when a key is set) | `pip install openai`, set `OPENAI_API_KEY` | cheapest mini model; override with `SHIELDWALL_OPENAI_MODEL` |
-| Claude | `pip install anthropic`, set `ANTHROPIC_API_KEY` | |
-| Ollama | `SHIELDWALL_LLM=ollama` | runs a local model |
-| Built-in template | nothing | used when no key is set, and as the fallback on any error |
-
-> **gpt-4o-mini:** "Your game server experienced a CLDAP amplification flood attack, peaking at over 213,000 packets per second from 2,204 sources. ShieldWall detected and mitigated the attack quickly, allowing 98.1% of legitimate traffic to be served without significant disruption. There's no action needed on your part, as the incident has been resolved."
->
-> **Asked "why did you block port 389?":** "We blocked UDP source port 389 because your server was targeted by a CLDAP amplification flood attack... blocking this port helped mitigate the attack."
+### 6. LLM layer ([llm.py](controlplane/shieldwall/llm.py), [llm_report.py](controlplane/shieldwall/llm_report.py))
+Runs off the blocking path. It receives only verified facts, with the meaning of each field spelled out. It explains incidents, answers questions from the SQLite log, and writes structured post-incident reports (strict JSON schema) with up to three suggested rules. Each suggestion is validated by the controller: it must be specific, hit under 1% of recent normal traffic, match at least 5% of the attack, and not duplicate an existing rule. Accepted rules start in dry-run. Backends: OpenAI gpt-4o-mini (default when `OPENAI_API_KEY` is set), Claude, Ollama, or a built-in template; any error falls back to the template.
 
 ## Run it
 
@@ -159,18 +181,16 @@ pip install -e .
 
 | Command | What it does |
 |---|---|
-| `shieldwall dashboard` | live dashboard at http://127.0.0.1:8000; click an attack button |
+| `shieldwall dashboard` | live dashboard at http://127.0.0.1:8000 |
 | `shieldwall demo --attack cldap` | one attack, step by step in the terminal |
-| `shieldwall eval` | four-scenario evaluation -> `results/results.md` |
-| `shieldwall metrics` | accuracy / precision / recall / F1 -> `results/metrics.md` |
-| `shieldwall llm-eval` | LLM grounding, accuracy, latency and cost -> `results/llm_eval.md` (needs `OPENAI_API_KEY`) |
-| `pytest -q` | unit and end-to-end tests (`pip install pytest`) |
+| `shieldwall replay capture.pcap ...` | replay real attack captures (.pcap / .pcapng) -> `results/replay.md` |
+| `shieldwall replay-cic archive.zip --member 01-12/Syn.csv` | replay CIC-DDoS2019 flow records straight from the dataset zip -> `results/replay_cic.md` |
+| `shieldwall eval` | four simulated scenarios -> `results/results.md` |
+| `shieldwall metrics` | accuracy / precision / recall / F1 over 200 simulated trials -> `results/metrics.md` |
+| `shieldwall llm-eval` | LLM grounding, faithfulness, suggestions, latency and cost (needs `OPENAI_API_KEY`) |
+| `pytest -q` | unit, replay and end-to-end tests (`pip install pytest`) |
 
-Plain-English explanations from GPT instead of the built-in template:
-```bash
-pip install openai
-export OPENAI_API_KEY=...
-```
+Add `--report` to `replay` / `replay-cic` for an LLM incident report per attack. For the LLM: `pip install openai` and set `OPENAI_API_KEY`.
 
 ### On Linux with the real XDP program
 
@@ -188,34 +208,37 @@ sudo shieldwall live --iface eth0                  # enforce
 bpf/xdp_filter.c              kernel data plane (C, eBPF/XDP)
 controlplane/shieldwall/
   sketches.py                 Count-Min, HyperLogLog, Bloom
-  features.py                 counters -> features (rates, ratios, entropy)
+  features.py                 counters -> features (rates, ratios, entropy, fragments, heavy hitter)
   detectors.py                EWMA z-score, CUSUM, entropy vote, re-baselining
   classifier.py               attack fingerprints, legit-surge check
-  mitigation.py               expiring rules, safety, upstream escalation
+  mitigation.py               expiring rules, safety, escalation, LLM-suggestion validator
   bpf_dataplane.py            live loader for the real XDP maps (Linux)
+  pcap.py, replay.py          real capture reader and replay
+  cic.py                      CIC-DDoS2019 flow-record replay
   simulator.py                lab traffic generator: players, attacks, link, server
   engine.py                   the per-second control loop
-  llm.py                      explainer + chat
+  llm.py, llm_report.py       explainer, chat, incident reports and rule suggestions
   store.py                    SQLite event log
   server.py, ../dashboard/    live dashboard
-  evaluate.py, metrics.py     scenario evaluation, accuracy/precision/recall/F1
-  llm_eval.py                 LLM grounding / accuracy / latency / cost evaluation
-tests/                        unit, end-to-end and kernel tests
-results/                      latest evaluation and metrics
-docs/SCRIPT.md                presentation script
-docs/ShieldWall_presentation  slides (.pptx and .pdf)
+  evaluate.py, metrics.py     simulated scenarios, accuracy/precision/recall/F1
+  llm_eval.py                 LLM evaluation (grounding, LLM-as-judge, suggestions, cost)
+tests/                        unit, replay, end-to-end and kernel tests
+results/                      latest results (Markdown + JSON)
+docs/                         presentation script and slides (.pptx and .pdf)
 ```
 
 ## Known limits
 
-- If a flood is bigger than the server's uplink, nothing on the server can fix it; ShieldWall's answer is upstream FlowSpec, which needs a provider that accepts it.
-- The detection metrics use the built-in traffic generator for ground truth. Results on real captures (for example CIC-DDoS2019) will differ.
-- IPv4 only; IPv6 traffic is passed through untouched. HTTP (layer 7) floods are not classified.
-- The live loader reads maps through `bpftool`, which is fine up to tens of thousands of sources; a libbpf reader would be needed for much larger botnets.
+- **Upstream escalation is simulated.** Floods bigger than the uplink need a provider that accepts FlowSpec; the simulator plays that provider.
+- **The players and the game server are modelled** in the simulated lab and the replays (the server is a 60k packets/s capacity). The attack traffic in the replays is real.
+- **CIC-DDoS2019 is flow records, not packets.** Packets are rebuilt from the flows; spacing inside a flow is approximated.
+- **IPv4 only**; IPv6 traffic is passed through untouched. HTTP (layer 7) floods are not classified.
+- **No throughput benchmark.** Packets per second per core needs a native-XDP network card.
+- **The live loader reads maps through `bpftool`**, fine up to tens of thousands of sources; a libbpf reader would be needed for much larger botnets.
 
 ## Safety and ethics
 
-All attack traffic is generated inside an isolated lab with no route to the internet. Never point attack tools at anything you don't own, and never use stresser services.
+All attack traffic is replayed or generated inside an isolated lab with no route to the internet. Never point attack tools at anything you don't own, and never use stresser services.
 
 ## Team RSST
 

@@ -27,7 +27,7 @@ class Featurizer:
         self.seen = BloomFilter(n=200_000, fp_rate=0.01)
 
     def featurize(self, win: Window) -> Features:
-        pps = bps = syn = ack = udp = amp = 0.0
+        pps = bps = syn = ack = udp = amp = frag = 0.0
         amp_by_port: dict[int, float] = defaultdict(float)
         by_src: dict[int, float] = defaultdict(float)
         by_dport: dict[int, float] = defaultdict(float)
@@ -39,6 +39,8 @@ class Featurizer:
             w = p.w
             pps += w
             bps += w * p.size * 8
+            if p.frag:
+                frag += w
             if p.proto == UDP:
                 udp += w
                 if p.sport in AMP_PORTS:
@@ -57,7 +59,11 @@ class Featurizer:
             if src not in self.seen:
                 new_w += w
 
+        heavy = cms.top(1)
+        top_src, top_w = (heavy[0][0], min(heavy[0][1], pps)) if heavy else (None, 0.0)
         amp_port = max(amp_by_port, key=amp_by_port.get) if amp_by_port else None
+        amp_ports = sorted((p for p, w in amp_by_port.items() if pps and w / pps >= 0.05),
+                           key=lambda p: -amp_by_port[p])
         return Features(
             t=win.t,
             pps=pps,
@@ -73,6 +79,11 @@ class Featurizer:
             src_entropy=entropy(by_src.values()),
             dport_entropy=entropy(by_dport.values()),
             top_talkers=[(ip_str(k), v) for k, v in cms.top(5)],
+            frag_share=frag / pps if pps else 0.0,
+            top_share=top_w / pps if pps else 0.0,
+            top_src=top_src,
+            top_src_new=top_src is not None and top_src not in self.seen,
+            amp_ports=amp_ports,
         )
 
     def learn(self, win: Window) -> None:

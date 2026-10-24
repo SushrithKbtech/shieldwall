@@ -1,0 +1,440 @@
+[
+  {
+    "capture": {
+      "file": "archive.zip:01-12/Syn.csv",
+      "victim": "192.168.50.1",
+      "window": "busiest 30 s, starting 2018-12-01 13:32:31",
+      "flows": 241623,
+      "packets": 1225604,
+      "seconds": 30,
+      "native_pps": 40853,
+      "unique_sources": 1,
+      "udp_share": 0.0,
+      "syn_share": 0.0,
+      "fragment_share": 0.0,
+      "top_source_ports": [
+        {
+          "port": 0,
+          "service": null,
+          "share": 0.004
+        },
+        {
+          "port": 672,
+          "service": null,
+          "share": 0.0
+        },
+        {
+          "port": 512,
+          "service": null,
+          "share": 0.0
+        },
+        {
+          "port": 65159,
+          "service": null,
+          "share": 0.0
+        }
+      ]
+    },
+    "label": "flood from a single host (172.16.0.5)",
+    "rules": [
+      "DROP ALL from 172.16.0.5"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 100.00080940000288,
+      "attack_dropped_pct": 93.33333333333344,
+      "attack_dropped_after_block_pct": 100.0,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": "Your server was attacked from about 334 sources using a flood from a single host (172.16.0.5) at up to 42,996 packets/s. ShieldWall blocked it 3 seconds after it started. 100% of real player traffic got through during the attack. No action needed from you.",
+    "report": {
+      "available": true,
+      "backend": "openai",
+      "report": {
+        "title": "Post-Incident Report: Flood from Host 172.16.0.5",
+        "summary": "A flood attack was detected originating from a single host, 172.16.0.5, resulting in a peak packet rate of 42,996 packets per second. The attack was confirmed and mitigated within 3 seconds, allowing 100% of legitimate player traffic to continue without interruption.",
+        "timeline": [
+          "0s: Traffic change detected",
+          "1s: Anomaly confirmed: flood from a single host (172.16.0.5)",
+          "1s: Rule added: DROP ALL from 172.16.0.5",
+          "3s: Mitigation in effect",
+          "31s: Incident resolved, 100% of real traffic served"
+        ],
+        "impact": "The incident resulted in a significant flood of packets from a single source, but all legitimate player traffic was served without loss due to rapid mitigation.",
+        "actions_taken": [
+          "Confirmed flood from 172.16.0.5",
+          "Applied DROP rule for 172.16.0.5",
+          "Monitored traffic to ensure legitimate players were unaffected"
+        ],
+        "recommendations": [],
+        "rule_suggestions": [
+          {
+            "action": "drop",
+            "protocol": "any",
+            "source_ip": "172.16.0.5",
+            "src_port": null,
+            "dst_port": null,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": false,
+            "rate_pps": null,
+            "reason": "Prevent further floods from the identified malicious host."
+          },
+          {
+            "action": "rate_limit",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": null,
+            "dst_port": 19132,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": 100,
+            "reason": "Limit potential flood traffic on the UDP port used by the game."
+          },
+          {
+            "action": "rate_limit",
+            "protocol": "tcp",
+            "source_ip": null,
+            "src_port": null,
+            "dst_port": 25565,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": 100,
+            "reason": "Limit potential flood traffic on the TCP port used by the game."
+          }
+        ]
+      },
+      "suggestions": [
+        {
+          "rule": "DROP ALL from 172.16.0.5",
+          "accepted": false,
+          "llm_reason": "Prevent further floods from the identified malicious host.",
+          "verdict": "rejected: already in place"
+        },
+        {
+          "rule": "RATE-LIMIT UDP dst port 19132 from unknown sources to 100 pps",
+          "accepted": false,
+          "llm_reason": "Limit potential flood traffic on the UDP port used by the game.",
+          "verdict": "rejected: matches only 0.0% of the attack traffic"
+        },
+        {
+          "rule": "RATE-LIMIT TCP dst port 25565 from unknown sources to 100 pps",
+          "accepted": false,
+          "llm_reason": "Limit potential flood traffic on the TCP port used by the game.",
+          "verdict": "rejected: matches only 0.0% of the attack traffic"
+        }
+      ],
+      "usage": {
+        "tokens_in": 1043,
+        "tokens_out": 425
+      },
+      "markdown": "## Post-Incident Report: Flood from Host 172.16.0.5\n\nA flood attack was detected originating from a single host, 172.16.0.5, resulting in a peak packet rate of 42,996 packets per second. The attack was confirmed and mitigated within 3 seconds, allowing 100% of legitimate player traffic to continue without interruption.\n\n**Timeline**\n- 0s: Traffic change detected\n- 1s: Anomaly confirmed: flood from a single host (172.16.0.5)\n- 1s: Rule added: DROP ALL from 172.16.0.5\n- 3s: Mitigation in effect\n- 31s: Incident resolved, 100% of real traffic served\n\n**Impact:** The incident resulted in a significant flood of packets from a single source, but all legitimate player traffic was served without loss due to rapid mitigation.\n\n**Actions taken**\n- Confirmed flood from 172.16.0.5\n- Applied DROP rule for 172.16.0.5\n- Monitored traffic to ensure legitimate players were unaffected\n\n**Suggested rules (checked by the controller)**\n- \u2717 DROP ALL from 172.16.0.5: rejected: already in place\n- \u2717 RATE-LIMIT UDP dst port 19132 from unknown sources to 100 pps: rejected: matches only 0.0% of the attack traffic\n- \u2717 RATE-LIMIT TCP dst port 25565 from unknown sources to 100 pps: rejected: matches only 0.0% of the attack traffic\n"
+    }
+  },
+  {
+    "capture": {
+      "file": "archive.zip:01-12/DrDoS_NTP.csv",
+      "victim": "192.168.50.1",
+      "window": "busiest 30 s, starting 2018-12-01 10:36:11",
+      "flows": 90340,
+      "packets": 6443149,
+      "seconds": 30,
+      "native_pps": 214772,
+      "unique_sources": 1,
+      "udp_share": 1.0,
+      "syn_share": 0.0,
+      "fragment_share": 0.0,
+      "top_source_ports": [
+        {
+          "port": 634,
+          "service": null,
+          "share": 0.435
+        },
+        {
+          "port": 680,
+          "service": null,
+          "share": 0.002
+        },
+        {
+          "port": 514,
+          "service": null,
+          "share": 0.001
+        },
+        {
+          "port": 1008,
+          "service": null,
+          "share": 0.001
+        }
+      ]
+    },
+    "label": "flood from a single host (172.16.0.5)",
+    "rules": [
+      "DROP ALL from 172.16.0.5"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 95.45549909412635,
+      "attack_dropped_pct": 93.33333333333347,
+      "attack_dropped_after_block_pct": 100.00000000000001,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 27.683838347700032
+    },
+    "explanation": "Your server was attacked from about 334 sources using a flood from a single host (172.16.0.5) at up to 216,914 packets/s. ShieldWall blocked it 3 seconds after it started. 98% of real player traffic got through during the attack. No action needed from you.",
+    "report": {
+      "available": true,
+      "backend": "openai",
+      "report": {
+        "title": "Post-Incident Report: Flood Attack from 172.16.0.5",
+        "summary": "A flood attack was detected originating from a single host (172.16.0.5), resulting in a peak packet rate of 216,914 packets per second. The attack was confirmed and mitigated within 3 seconds, allowing 98.1% of legitimate player traffic to continue during the incident.",
+        "timeline": [
+          "0s: Attack begins",
+          "1s: Anomaly confirmed",
+          "2s: Mitigation detected",
+          "3s: Mitigation applied",
+          "31s: Incident resolved"
+        ],
+        "impact": "The flood attack caused a significant increase in traffic, but 98.1% of legitimate player traffic was still served during the incident. No escalation to upstream filtering was necessary.",
+        "actions_taken": [
+          "Confirmed flood from 172.16.0.5",
+          "Applied DROP rule for 172.16.0.5",
+          "Monitored traffic for further anomalies"
+        ],
+        "recommendations": [],
+        "rule_suggestions": [
+          {
+            "action": "drop",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": 634,
+            "dst_port": null,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": null,
+            "reason": "Drop UDP traffic from unknown sources to mitigate potential future floods."
+          },
+          {
+            "action": "rate_limit",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": 919,
+            "dst_port": null,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": 100,
+            "reason": "Rate limit UDP traffic from unknown sources on port 919 to reduce impact of potential floods."
+          },
+          {
+            "action": "rate_limit",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": 630,
+            "dst_port": null,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": 100,
+            "reason": "Rate limit UDP traffic from unknown sources on port 630 to reduce impact of potential floods."
+          }
+        ]
+      },
+      "suggestions": [
+        {
+          "rule": "DROP UDP src port 634 from unknown sources",
+          "accepted": true,
+          "llm_reason": "Drop UDP traffic from unknown sources to mitigate potential future floods.",
+          "verdict": "accepted in dry-run: matches 33% of the attack, 0.00% of normal traffic"
+        },
+        {
+          "rule": "RATE-LIMIT UDP src port 919 from unknown sources to 100 pps",
+          "accepted": false,
+          "llm_reason": "Rate limit UDP traffic from unknown sources on port 919 to reduce impact of potential floods.",
+          "verdict": "rejected: matches only 0.3% of the attack traffic"
+        },
+        {
+          "rule": "RATE-LIMIT UDP src port 630 from unknown sources to 100 pps",
+          "accepted": false,
+          "llm_reason": "Rate limit UDP traffic from unknown sources on port 630 to reduce impact of potential floods.",
+          "verdict": "rejected: matches only 0.3% of the attack traffic"
+        }
+      ],
+      "usage": {
+        "tokens_in": 1044,
+        "tokens_out": 400
+      },
+      "markdown": "## Post-Incident Report: Flood Attack from 172.16.0.5\n\nA flood attack was detected originating from a single host (172.16.0.5), resulting in a peak packet rate of 216,914 packets per second. The attack was confirmed and mitigated within 3 seconds, allowing 98.1% of legitimate player traffic to continue during the incident.\n\n**Timeline**\n- 0s: Attack begins\n- 1s: Anomaly confirmed\n- 2s: Mitigation detected\n- 3s: Mitigation applied\n- 31s: Incident resolved\n\n**Impact:** The flood attack caused a significant increase in traffic, but 98.1% of legitimate player traffic was still served during the incident. No escalation to upstream filtering was necessary.\n\n**Actions taken**\n- Confirmed flood from 172.16.0.5\n- Applied DROP rule for 172.16.0.5\n- Monitored traffic for further anomalies\n\n**Suggested rules (checked by the controller)**\n- \u2713 DROP UDP src port 634 from unknown sources: accepted in dry-run: matches 33% of the attack, 0.00% of normal traffic\n- \u2717 RATE-LIMIT UDP src port 919 from unknown sources to 100 pps: rejected: matches only 0.3% of the attack traffic\n- \u2717 RATE-LIMIT UDP src port 630 from unknown sources to 100 pps: rejected: matches only 0.3% of the attack traffic\n"
+    }
+  },
+  {
+    "capture": {
+      "file": "archive.zip:01-12/DrDoS_LDAP.csv",
+      "victim": "192.168.50.1",
+      "window": "busiest 30 s, starting 2018-12-01 11:24:46",
+      "flows": 117606,
+      "packets": 579270,
+      "seconds": 30,
+      "native_pps": 19309,
+      "unique_sources": 1,
+      "udp_share": 0.407,
+      "syn_share": 0.0,
+      "fragment_share": 0.0,
+      "top_source_ports": [
+        {
+          "port": 0,
+          "service": null,
+          "share": 0.593
+        },
+        {
+          "port": 900,
+          "service": null,
+          "share": 0.009
+        },
+        {
+          "port": 521,
+          "service": null,
+          "share": 0.001
+        },
+        {
+          "port": 940,
+          "service": null,
+          "share": 0.001
+        }
+      ]
+    },
+    "label": "flood from a single host (172.16.0.5)",
+    "rules": [
+      "DROP ALL from 172.16.0.5"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 100.00080940000288,
+      "attack_dropped_pct": 93.33333333333354,
+      "attack_dropped_after_block_pct": 100.0,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": "Your server was attacked from about 334 sources using a flood from a single host (172.16.0.5) at up to 21,452 packets/s. ShieldWall blocked it 3 seconds after it started. 100% of real player traffic got through during the attack. No action needed from you.",
+    "report": {
+      "available": true,
+      "backend": "openai",
+      "report": {
+        "title": "Post-Incident Report: Flood Attack from Host 172.16.0.5",
+        "summary": "A flood attack was detected and mitigated from a single host (172.16.0.5) which constituted 92% of all traffic during the incident. The attack was confirmed within 2 seconds and mitigated within 3 seconds, allowing 100% of real player traffic to be served.",
+        "timeline": [
+          "0s: Traffic change detected.",
+          "1s: Anomaly confirmed: flood from a single host (172.16.0.5).",
+          "1s: Rule added to drop all traffic from 172.16.0.5.",
+          "3s: Mitigation in effect.",
+          "31s: Incident resolved."
+        ],
+        "impact": "The attack resulted in a peak of 21452 packets per second, but all legitimate player traffic was served without interruption due to rapid response.",
+        "actions_taken": [
+          "Confirmed flood from 172.16.0.5.",
+          "Applied DROP rule for 172.16.0.5.",
+          "Monitored traffic to ensure legitimate players were unaffected."
+        ],
+        "recommendations": [],
+        "rule_suggestions": [
+          {
+            "action": "drop",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": 0,
+            "dst_port": 0,
+            "syn_only": false,
+            "fragments_only": true,
+            "unknown_sources_only": false,
+            "rate_pps": null,
+            "reason": "To mitigate potential future fragment-based attacks."
+          },
+          {
+            "action": "rate_limit",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": 0,
+            "dst_port": 0,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": 100,
+            "reason": "To limit the impact of unknown sources flooding the server."
+          },
+          {
+            "action": "drop",
+            "protocol": "tcp",
+            "source_ip": null,
+            "src_port": 900,
+            "dst_port": 25565,
+            "syn_only": true,
+            "fragments_only": false,
+            "unknown_sources_only": false,
+            "rate_pps": null,
+            "reason": "To block potential SYN flood attacks from common non-game source ports."
+          }
+        ]
+      },
+      "suggestions": [
+        {
+          "rule": "DROP UDP fragments",
+          "accepted": false,
+          "llm_reason": "To mitigate potential future fragment-based attacks.",
+          "verdict": "rejected: matches only 0.0% of the attack traffic"
+        },
+        {
+          "rule": "RATE-LIMIT UDP from unknown sources to 100 pps",
+          "accepted": true,
+          "llm_reason": "To limit the impact of unknown sources flooding the server.",
+          "verdict": "accepted in dry-run: matches 40% of the attack, 0.00% of normal traffic"
+        },
+        {
+          "rule": "DROP TCP src port 900 dst port 25565 SYN only",
+          "accepted": false,
+          "llm_reason": "To block potential SYN flood attacks from common non-game source ports.",
+          "verdict": "rejected: a drop on game port 25565 would lock out new players joining; only a rate limit is allowed there"
+        }
+      ],
+      "usage": {
+        "tokens_in": 1041,
+        "tokens_out": 409
+      },
+      "markdown": "## Post-Incident Report: Flood Attack from Host 172.16.0.5\n\nA flood attack was detected and mitigated from a single host (172.16.0.5) which constituted 92% of all traffic during the incident. The attack was confirmed within 2 seconds and mitigated within 3 seconds, allowing 100% of real player traffic to be served.\n\n**Timeline**\n- 0s: Traffic change detected.\n- 1s: Anomaly confirmed: flood from a single host (172.16.0.5).\n- 1s: Rule added to drop all traffic from 172.16.0.5.\n- 3s: Mitigation in effect.\n- 31s: Incident resolved.\n\n**Impact:** The attack resulted in a peak of 21452 packets per second, but all legitimate player traffic was served without interruption due to rapid response.\n\n**Actions taken**\n- Confirmed flood from 172.16.0.5.\n- Applied DROP rule for 172.16.0.5.\n- Monitored traffic to ensure legitimate players were unaffected.\n\n**Suggested rules (checked by the controller)**\n- \u2717 DROP UDP fragments: rejected: matches only 0.0% of the attack traffic\n- \u2713 RATE-LIMIT UDP from unknown sources to 100 pps: accepted in dry-run: matches 40% of the attack, 0.00% of normal traffic\n- \u2717 DROP TCP src port 900 dst port 25565 SYN only: rejected: a drop on game port 25565 would lock out new players joining; only a rate limit is allowed there\n"
+    }
+  }
+]

@@ -38,7 +38,24 @@ class Classifier:
     def classify(self, f: Features) -> Classification:
         base_udp = self.base_udp_share or 0.0
 
-        if f.amp_share > 0.5 and f.amp_port in AMP_PORTS:
+        # Fragments of amplified replies carry no ports, so they count towards the amplification share.
+        if f.amp_share + f.frag_share > 0.5 and len(f.amp_ports) > 1:
+            names = [AMP_PORTS[p] for p in f.amp_ports]
+            return Classification(
+                kind="multi_vector_amplification",
+                label=f"multi-vector amplification ({', '.join(names)})",
+                malicious=True,
+                confidence=min(0.99, 0.6 + f.amp_share * 0.4),
+                evidence=[
+                    f"{f.amp_share:.0%} of traffic is UDP from service ports {', '.join(map(str, f.amp_ports))} "
+                    f"({', '.join(names)}) at the same time",
+                    "this server never sends those queries, so these are reflected replies",
+                    f"{f.frag_share:.0%} of packets are IP fragments of oversized replies",
+                    f"~{f.unique_sources:,} distinct reflector sources",
+                ],
+            )
+
+        if f.amp_share + f.frag_share > 0.5 and f.amp_port in AMP_PORTS:
             name = AMP_PORTS[f.amp_port]
             return Classification(
                 kind=f"{name.lower()}_amplification",
@@ -52,16 +69,30 @@ class Classifier:
                 ],
             )
 
-        if f.syn_ack_ratio > 1.0 and f.syn_pps > 1000:
+        if f.syn_ack_ratio > 0.5 and f.syn_pps > 500:
             return Classification(
                 kind="syn_flood",
                 label="TCP SYN flood",
                 malicious=True,
                 confidence=min(0.99, 0.5 + f.syn_ack_ratio / 40),
                 evidence=[
-                    f"SYN:ACK ratio is {f.syn_ack_ratio:.1f} (normal is well under 1)",
+                    f"SYN:ACK ratio is {f.syn_ack_ratio:.1f} (normal is about 0.01)",
                     f"{f.syn_pps:,.0f} connection attempts/s that never complete the handshake",
                     f"{f.new_source_share:.0%} of packets come from never-seen sources",
+                ],
+            )
+
+        if f.top_share > 0.5 and f.top_src_new:
+            from .models import ip_str
+            return Classification(
+                kind="single_source_flood",
+                label=f"flood from a single host ({ip_str(f.top_src)})",
+                malicious=True,
+                confidence=min(0.99, 0.5 + f.top_share / 2),
+                evidence=[
+                    f"{f.top_share:.0%} of all traffic comes from one address, {ip_str(f.top_src)} (Count-Min Sketch)",
+                    "that address was never seen during normal traffic",
+                    f"UDP share {f.udp_share:.0%}, SYN:ACK ratio {f.syn_ack_ratio:.2f}",
                 ],
             )
 

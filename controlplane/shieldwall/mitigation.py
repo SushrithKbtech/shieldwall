@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .classifier import Classification
-from .models import TCP, UDP, Features, Rule
+from .models import TCP, UDP, Features, Rule, ip_int
 
 
 @dataclass
@@ -21,6 +21,7 @@ class MitigationConfig:
     escalate_after: int = 3        # windows of link saturation before asking upstream for help
     link_saturation: float = 0.95  # fraction of link capacity that counts as "full"
     renew_min_hits: float = 1.0
+    service_ports: tuple[int, ...] = (25565, 19132)  # the protected game's ports (Minecraft Java / Bedrock)
 
 
 @dataclass
@@ -42,16 +43,34 @@ class MitigationController:
 
     # -- rule construction -------------------------------------------------
     def _rules_for(self, c: Classification, f: Features, baseline_pps: float, t: int) -> list[Rule]:
+        rules = self._fingerprint_rules(c, f, baseline_pps, t)
+        # Not for amplification: port rules already stop reflected traffic, and the biggest reflector is
+        # often a public resolver (8.8.8.8 in a real capture) that the server itself relies on.
+        if (f.top_src is not None and f.top_src_new and f.top_share >= 0.3
+                and not c.kind.endswith("_amplification")):
+            # Heavy hitter: one never-seen address sends a big share of an attack. Block just that address.
+            rules.append(Rule(0, "drop", 0, src=f.top_src, src_mask=0xFFFFFFFF, expires_at=t + self.cfg.rule_ttl,
+                              mode="dry-run" if self.cfg.dry_run else "enforce",
+                              reason=f"{c.label}: heavy hitter sending {f.top_share:.0%} of traffic"))
+        return rules
+
+    def _fingerprint_rules(self, c: Classification, f: Features, baseline_pps: float, t: int) -> list[Rule]:
         exp = t + self.cfg.rule_ttl
         mode = "dry-run" if self.cfg.dry_run else "enforce"
         if c.kind.endswith("_amplification") and f.amp_port:
-            # Clean fingerprint -> precise signature drop. Real players never match it.
-            return [Rule(0, "drop", UDP, sport=f.amp_port, expires_at=exp, mode=mode,
-                         reason=f"{c.label}: signature drop")]
+            # Clean fingerprint -> precise signature drop per reflected service port (all vectors of a
+            # multi-vector attack). Real players never match it.
+            rules = [Rule(0, "drop", UDP, sport=port, expires_at=exp, mode=mode, reason=f"{c.label}: signature drop")
+                     for port in (f.amp_ports or [f.amp_port])]
+            if f.frag_share >= 0.05:
+                # Fragments of oversized replies carry no ports; drop those from unknown sources too.
+                rules.append(Rule(0, "drop", UDP, frag_only=True, untrusted_only=True, expires_at=exp, mode=mode,
+                                  reason=f"{c.label}: fragments of reflected replies"))
+            return rules
         if c.kind == "syn_flood":
             # Unknown sources may still open connections, but only at a sane rate.
             return [Rule(0, "rate_limit", TCP, syn_only=True, untrusted_only=True,
-                         rate_pps=max(200.0, baseline_pps * 0.05), expires_at=exp, mode=mode,
+                         rate_pps=max(100.0, baseline_pps * 0.02), expires_at=exp, mode=mode,
                          reason=f"{c.label}: token-bucket on new connections")]
         if c.kind == "udp_flood":
             return [Rule(0, "rate_limit", UDP, untrusted_only=True,
@@ -60,8 +79,8 @@ class MitigationController:
         return []
 
     def _same(self, a: Rule, b: Rule) -> bool:
-        return (a.action, a.proto, a.sport, a.dport, a.syn_only, a.untrusted_only) == (
-            b.action, b.proto, b.sport, b.dport, b.syn_only, b.untrusted_only)
+        return (a.action, a.proto, a.sport, a.dport, a.syn_only, a.untrusted_only, a.frag_only, a.src, a.src_mask) == (
+            b.action, b.proto, b.sport, b.dport, b.syn_only, b.untrusted_only, b.frag_only, b.src, b.src_mask)
 
     # -- main step ---------------------------------------------------------
     def step(self, t: int, anomalous: bool, c: Classification | None, f: Features,
@@ -127,3 +146,74 @@ class MitigationController:
 
     def enforced_rules(self) -> list[Rule]:
         return [r for r in self.rules.values() if r.mode == "enforce"]
+
+
+# -- validating rules suggested by the LLM -------------------------------------
+# The LLM may propose rules, but only the controller decides. A suggestion is turned
+# into a Rule and tested against real traffic samples before it is ever installed,
+# and accepted rules start in dry-run (they log what they would drop, nothing more).
+
+MAX_PLAYER_HIT = 0.01   # may touch at most 1% of recent normal traffic
+MIN_ATTACK_HIT = 0.05   # must match at least 5% of the attack traffic
+
+
+def suggestion_to_rule(s: dict) -> Rule:
+    proto = {"udp": UDP, "tcp": TCP, "any": 0}.get(str(s.get("protocol", "")).lower())
+    action = s.get("action")
+    if proto is None or action not in ("drop", "rate_limit"):
+        raise ValueError("unknown protocol or action")
+    src = ip_int(s["source_ip"]) if s.get("source_ip") else 0
+    ports = [s.get("src_port") or 0, s.get("dst_port") or 0]
+    if any(not isinstance(p, int) or not 0 <= p <= 65535 for p in ports):
+        raise ValueError("ports must be 0-65535")
+    rate = float(s.get("rate_pps") or 0)
+    if action == "rate_limit" and not 1 <= rate <= 1_000_000:
+        raise ValueError("a rate limit needs rate_pps between 1 and 1,000,000")
+    return Rule(0, action, proto, sport=ports[0], dport=ports[1], syn_only=bool(s.get("syn_only")),
+                src=src, src_mask=0xFFFFFFFF if src else 0,
+                untrusted_only=bool(s.get("unknown_sources_only")), frag_only=bool(s.get("fragments_only")),
+                rate_pps=rate, reason=str(s.get("reason", ""))[:200])
+
+
+def _share(rule: Rule, samples: list, trusted: set[int]) -> float:
+    total = sum(p.w for p in samples)
+    return sum(p.w for p in samples if rule.matches(p, trusted)) / total if total else 0.0
+
+
+def validate_suggestion(s: dict, controller: "MitigationController", attack_sample: list, calm_sample: list,
+                        trusted: set[int], t: int) -> dict:
+    """Return {"rule", "accepted", "verdict"}; install accepted rules in dry-run."""
+    try:
+        rule = suggestion_to_rule(s)
+    except (ValueError, TypeError) as e:
+        return {"rule": str(s), "accepted": False, "verdict": f"rejected: {e}"}
+    out = {"rule": rule.describe(), "accepted": False, "llm_reason": rule.reason}
+    if not (rule.sport or rule.dport or rule.syn_only or rule.frag_only or rule.untrusted_only or rule.src_mask):
+        out["verdict"] = "rejected: too broad (would match every packet of that protocol)"
+        return out
+    if rule.action == "drop" and rule.dport in controller.cfg.service_ports:
+        out["verdict"] = (f"rejected: a drop on game port {rule.dport} would lock out new players joining; "
+                          "only a rate limit is allowed there")
+        return out
+    if any(controller._same(rule, r) for r in controller.rules.values()):
+        out["verdict"] = "rejected: already in place"
+        return out
+    players = _share(rule, calm_sample, trusted)
+    if players > MAX_PLAYER_HIT:
+        out["verdict"] = f"rejected: would hit {players:.1%} of normal player traffic"
+        return out
+    attack = _share(rule, attack_sample, trusted)
+    if attack < MIN_ATTACK_HIT:
+        out["verdict"] = f"rejected: matches only {attack:.1%} of the attack traffic"
+        return out
+    if len(controller.rules) >= controller.cfg.max_rules:
+        out["verdict"] = "rejected: rule cap reached"
+        return out
+    rule.id = controller._next_id
+    controller._next_id += 1
+    rule.mode, rule.expires_at = "dry-run", t + controller.cfg.rule_ttl
+    rule.reason = f"suggested by LLM, validated: {rule.reason}"
+    controller.rules[rule.id] = rule
+    out.update(accepted=True, verdict=f"accepted in dry-run: matches {attack:.0%} of the attack, "
+                                      f"{players:.2%} of normal traffic")
+    return out

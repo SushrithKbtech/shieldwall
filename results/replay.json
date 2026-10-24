@@ -1,0 +1,388 @@
+[
+  {
+    "capture": {
+      "file": "amp.UDP.DNSANY.pcap",
+      "victim": "10.10.10.10",
+      "packets": 11998,
+      "seconds": 0.574,
+      "native_pps": 20889,
+      "unique_sources": 79,
+      "avg_size": 508,
+      "udp_share": 0.986,
+      "syn_share": 0.0,
+      "fragment_share": 0.237,
+      "top_source_ports": [
+        {
+          "port": 53,
+          "service": "DNS",
+          "share": 0.748
+        },
+        {
+          "port": 161,
+          "service": null,
+          "share": 0.001
+        }
+      ]
+    },
+    "label": "DNS amplification flood",
+    "rules": [
+      "DROP UDP src port 53",
+      "DROP UDP fragments from unknown sources"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 100.00080940000288,
+      "attack_dropped_pct": 91.92666666666649,
+      "attack_dropped_after_block_pct": 98.49285714285712,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": "Your server was attacked from about 378 sources using a DNS amplification flood at up to 23,032 packets/s. ShieldWall blocked it 3 seconds after it started. 100% of real player traffic got through during the attack. No action needed from you.",
+    "report": {
+      "available": true,
+      "backend": "openai",
+      "report": {
+        "title": "Post-Incident Report: DNS Amplification Flood",
+        "summary": "A DNS amplification flood was detected and mitigated successfully, with 100% of legitimate player traffic served during the incident.",
+        "timeline": [
+          "Incident detected at +1s",
+          "Mitigation rules applied at +2s",
+          "Incident resolved at +32s"
+        ],
+        "impact": "The server experienced a peak packet rate of 23032 packets per second, but all legitimate player traffic was served without interruption.",
+        "actions_taken": [
+          "Confirmed anomaly as DNS amplification flood",
+          "Applied rules to drop UDP traffic from source port 53",
+          "Dropped UDP fragments from unknown sources"
+        ],
+        "recommendations": [
+          "Consider implementing rate limiting for UDP traffic from source port 53 to mitigate future amplification attacks.",
+          "Monitor for unusual traffic patterns from known DNS servers and apply additional rules as necessary."
+        ],
+        "rule_suggestions": [
+          {
+            "action": "rate_limit",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": 53,
+            "dst_port": 25565,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": false,
+            "rate_pps": 1000,
+            "reason": "Rate limit UDP traffic from source port 53 to reduce impact of amplification attacks."
+          },
+          {
+            "action": "rate_limit",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": 53,
+            "dst_port": 19132,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": false,
+            "rate_pps": 1000,
+            "reason": "Rate limit UDP traffic from source port 53 to reduce impact of amplification attacks."
+          }
+        ]
+      },
+      "suggestions": [
+        {
+          "rule": "RATE-LIMIT UDP src port 53 dst port 25565 to 1,000 pps",
+          "accepted": false,
+          "llm_reason": "Rate limit UDP traffic from source port 53 to reduce impact of amplification attacks.",
+          "verdict": "rejected: matches only 0.0% of the attack traffic"
+        },
+        {
+          "rule": "RATE-LIMIT UDP src port 53 dst port 19132 to 1,000 pps",
+          "accepted": false,
+          "llm_reason": "Rate limit UDP traffic from source port 53 to reduce impact of amplification attacks.",
+          "verdict": "rejected: matches only 0.0% of the attack traffic"
+        }
+      ],
+      "usage": {
+        "tokens_in": 1031,
+        "tokens_out": 302
+      },
+      "markdown": "## Post-Incident Report: DNS Amplification Flood\n\nA DNS amplification flood was detected and mitigated successfully, with 100% of legitimate player traffic served during the incident.\n\n**Timeline**\n- Incident detected at +1s\n- Mitigation rules applied at +2s\n- Incident resolved at +32s\n\n**Impact:** The server experienced a peak packet rate of 23032 packets per second, but all legitimate player traffic was served without interruption.\n\n**Actions taken**\n- Confirmed anomaly as DNS amplification flood\n- Applied rules to drop UDP traffic from source port 53\n- Dropped UDP fragments from unknown sources\n\n**Recommendations**\n- Consider implementing rate limiting for UDP traffic from source port 53 to mitigate future amplification attacks.\n- Monitor for unusual traffic patterns from known DNS servers and apply additional rules as necessary.\n\n**Suggested rules (checked by the controller)**\n- \u2717 RATE-LIMIT UDP src port 53 dst port 25565 to 1,000 pps: rejected: matches only 0.0% of the attack traffic\n- \u2717 RATE-LIMIT UDP src port 53 dst port 19132 to 1,000 pps: rejected: matches only 0.0% of the attack traffic\n"
+    }
+  },
+  {
+    "capture": {
+      "file": "pkt.TCP.synflood.spoofed.pcap",
+      "victim": "10.10.10.10",
+      "packets": 37841,
+      "seconds": 23.684,
+      "native_pps": 1598,
+      "unique_sources": 37623,
+      "avg_size": 46,
+      "udp_share": 0.0,
+      "syn_share": 1.0,
+      "fragment_share": 0.0,
+      "top_source_ports": []
+    },
+    "label": "TCP SYN flood",
+    "rules": [
+      "RATE-LIMIT TCP SYN only from unknown sources to 100 pps"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 99.9397756840962,
+      "attack_dropped_pct": 87.49678776019142,
+      "attack_dropped_after_block_pct": 93.7465583144896,
+      "legit_dropped_pct": 0.018001583660273702,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 100.00080940000288
+    },
+    "explanation": "Your server was attacked from about 1,995 sources using a TCP SYN flood at up to 3,741 packets/s. ShieldWall blocked it 3 seconds after it started. 100% of real player traffic got through during the attack. No action needed from you.",
+    "report": {
+      "available": true,
+      "backend": "openai",
+      "report": {
+        "title": "Post-Incident Report: TCP SYN Flood",
+        "summary": "A TCP SYN flood attack was detected and mitigated on the Minecraft server, resulting in minimal impact on legitimate player traffic.",
+        "timeline": [
+          "Incident detected at +2 seconds",
+          "Mitigation rule applied at +3 seconds",
+          "Incident resolved at +32 seconds"
+        ],
+        "impact": "99.9% of real player traffic was served during the incident, indicating effective mitigation despite the attack.",
+        "actions_taken": [
+          "Confirmed TCP SYN flood anomaly",
+          "Applied rate-limit rule for TCP SYN from unknown sources to 100 pps"
+        ],
+        "recommendations": [],
+        "rule_suggestions": [
+          {
+            "action": "drop",
+            "protocol": "tcp",
+            "source_ip": null,
+            "src_port": null,
+            "dst_port": 25565,
+            "syn_only": true,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": null,
+            "reason": "Further protect against SYN flood attacks by dropping additional SYN packets from unknown sources."
+          },
+          {
+            "action": "drop",
+            "protocol": "tcp",
+            "source_ip": null,
+            "src_port": null,
+            "dst_port": 19132,
+            "syn_only": true,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": null,
+            "reason": "Enhance security for the UDP port by dropping SYN packets targeting it from unknown sources."
+          },
+          {
+            "action": "rate_limit",
+            "protocol": "tcp",
+            "source_ip": null,
+            "src_port": null,
+            "dst_port": 25565,
+            "syn_only": true,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": 50,
+            "reason": "Implement a stricter rate limit for SYN packets from unknown sources to further mitigate potential SYN flood attacks."
+          }
+        ]
+      },
+      "suggestions": [
+        {
+          "rule": "DROP TCP dst port 25565 SYN only from unknown sources",
+          "accepted": false,
+          "llm_reason": "Further protect against SYN flood attacks by dropping additional SYN packets from unknown sources.",
+          "verdict": "rejected: a drop on game port 25565 would lock out new players joining; only a rate limit is allowed there"
+        },
+        {
+          "rule": "DROP TCP dst port 19132 SYN only from unknown sources",
+          "accepted": false,
+          "llm_reason": "Enhance security for the UDP port by dropping SYN packets targeting it from unknown sources.",
+          "verdict": "rejected: a drop on game port 19132 would lock out new players joining; only a rate limit is allowed there"
+        },
+        {
+          "rule": "RATE-LIMIT TCP dst port 25565 SYN only from unknown sources to 50 pps",
+          "accepted": true,
+          "llm_reason": "Implement a stricter rate limit for SYN packets from unknown sources to further mitigate potential SYN flood attacks.",
+          "verdict": "accepted in dry-run: matches 43% of the attack, 0.00% of normal traffic"
+        }
+      ],
+      "usage": {
+        "tokens_in": 1011,
+        "tokens_out": 326
+      },
+      "markdown": "## Post-Incident Report: TCP SYN Flood\n\nA TCP SYN flood attack was detected and mitigated on the Minecraft server, resulting in minimal impact on legitimate player traffic.\n\n**Timeline**\n- Incident detected at +2 seconds\n- Mitigation rule applied at +3 seconds\n- Incident resolved at +32 seconds\n\n**Impact:** 99.9% of real player traffic was served during the incident, indicating effective mitigation despite the attack.\n\n**Actions taken**\n- Confirmed TCP SYN flood anomaly\n- Applied rate-limit rule for TCP SYN from unknown sources to 100 pps\n\n**Suggested rules (checked by the controller)**\n- \u2717 DROP TCP dst port 25565 SYN only from unknown sources: rejected: a drop on game port 25565 would lock out new players joining; only a rate limit is allowed there\n- \u2717 DROP TCP dst port 19132 SYN only from unknown sources: rejected: a drop on game port 19132 would lock out new players joining; only a rate limit is allowed there\n- \u2713 RATE-LIMIT TCP dst port 25565 SYN only from unknown sources to 50 pps: accepted in dry-run: matches 43% of the attack, 0.00% of normal traffic\n"
+    }
+  },
+  {
+    "capture": {
+      "file": "amp.UDP.memcached.ntp.cldap.pcap",
+      "victim": "10.10.10.10",
+      "packets": 29462,
+      "seconds": 0.285,
+      "native_pps": 103484,
+      "unique_sources": 1992,
+      "avg_size": 967,
+      "udp_share": 0.995,
+      "syn_share": 0.0,
+      "fragment_share": 0.142,
+      "top_source_ports": [
+        {
+          "port": 11211,
+          "service": "Memcached",
+          "share": 0.362
+        },
+        {
+          "port": 123,
+          "service": "NTP",
+          "share": 0.339
+        },
+        {
+          "port": 53,
+          "service": "DNS",
+          "share": 0.117
+        },
+        {
+          "port": 389,
+          "service": "CLDAP",
+          "share": 0.031
+        }
+      ]
+    },
+    "label": "multi-vector amplification (Memcached, NTP, DNS)",
+    "rules": [
+      "DROP UDP src port 11211",
+      "DROP UDP src port 123",
+      "DROP UDP src port 53",
+      "DROP UDP fragments from unknown sources"
+    ],
+    "with": {
+      "detect_s": 2,
+      "mitigate_s": 3,
+      "served_pct": 97.29498534688658,
+      "attack_dropped_pct": 89.61333333333383,
+      "attack_dropped_after_block_pct": 96.01428571428589,
+      "legit_dropped_pct": 0.0,
+      "window": {
+        "tn": 40,
+        "fn": 1,
+        "tp": 29,
+        "precision": 1.0,
+        "recall": 0.9666666666666667,
+        "f1": 0.983050847457627
+      }
+    },
+    "without": {
+      "served_pct": 56.90104765742747
+    },
+    "explanation": "Your server was attacked from about 1,129 sources using a multi-vector amplification (Memcached, NTP, DNS) at up to 105,627 packets/s. ShieldWall blocked it 3 seconds after it started. 99% of real player traffic got through during the attack. No action needed from you.",
+    "report": {
+      "available": true,
+      "backend": "openai",
+      "report": {
+        "title": "Incident Report: Multi-Vector Amplification Attack",
+        "summary": "A multi-vector amplification attack was detected and mitigated on the game server, primarily utilizing UDP traffic from service ports associated with Memcached, NTP, and DNS. The attack peaked at 105,627 packets per second with a significant portion of the traffic being reflected replies.",
+        "timeline": [
+          "Incident detected at +2s",
+          "Mitigation rules applied at +3s",
+          "Incident resolved at +32s"
+        ],
+        "impact": "98.8% of legitimate player traffic was served during the incident, indicating effective mitigation despite the high volume of attack traffic.",
+        "actions_taken": [
+          "Confirmed anomaly and identified attack vectors",
+          "Applied rules to drop UDP traffic from identified service ports",
+          "Dropped UDP fragments from unknown sources"
+        ],
+        "recommendations": [],
+        "rule_suggestions": [
+          {
+            "action": "drop",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": null,
+            "dst_port": 23156,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": null,
+            "reason": "Drop all UDP traffic to destination port 23156 from unknown sources to mitigate further amplification risks."
+          },
+          {
+            "action": "rate_limit",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": null,
+            "dst_port": 23156,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": false,
+            "rate_pps": 1000,
+            "reason": "Rate limit UDP traffic to destination port 23156 to reduce the impact of potential future amplification attacks."
+          },
+          {
+            "action": "drop",
+            "protocol": "udp",
+            "source_ip": null,
+            "src_port": null,
+            "dst_port": 25565,
+            "syn_only": false,
+            "fragments_only": false,
+            "unknown_sources_only": true,
+            "rate_pps": null,
+            "reason": "Drop all UDP traffic to destination port 25565 from unknown sources to protect the game server from amplification attacks."
+          }
+        ]
+      },
+      "suggestions": [
+        {
+          "rule": "DROP UDP dst port 23156 from unknown sources",
+          "accepted": true,
+          "llm_reason": "Drop all UDP traffic to destination port 23156 from unknown sources to mitigate further amplification risks.",
+          "verdict": "accepted in dry-run: matches 84% of the attack, 0.00% of normal traffic"
+        },
+        {
+          "rule": "RATE-LIMIT UDP dst port 23156 to 1,000 pps",
+          "accepted": true,
+          "llm_reason": "Rate limit UDP traffic to destination port 23156 to reduce the impact of potential future amplification attacks.",
+          "verdict": "accepted in dry-run: matches 84% of the attack, 0.00% of normal traffic"
+        },
+        {
+          "rule": "DROP UDP dst port 25565 from unknown sources",
+          "accepted": false,
+          "llm_reason": "Drop all UDP traffic to destination port 25565 from unknown sources to protect the game server from amplification attacks.",
+          "verdict": "rejected: a drop on game port 25565 would lock out new players joining; only a rate limit is allowed there"
+        }
+      ],
+      "usage": {
+        "tokens_in": 1155,
+        "tokens_out": 375
+      },
+      "markdown": "## Incident Report: Multi-Vector Amplification Attack\n\nA multi-vector amplification attack was detected and mitigated on the game server, primarily utilizing UDP traffic from service ports associated with Memcached, NTP, and DNS. The attack peaked at 105,627 packets per second with a significant portion of the traffic being reflected replies.\n\n**Timeline**\n- Incident detected at +2s\n- Mitigation rules applied at +3s\n- Incident resolved at +32s\n\n**Impact:** 98.8% of legitimate player traffic was served during the incident, indicating effective mitigation despite the high volume of attack traffic.\n\n**Actions taken**\n- Confirmed anomaly and identified attack vectors\n- Applied rules to drop UDP traffic from identified service ports\n- Dropped UDP fragments from unknown sources\n\n**Suggested rules (checked by the controller)**\n- \u2713 DROP UDP dst port 23156 from unknown sources: accepted in dry-run: matches 84% of the attack, 0.00% of normal traffic\n- \u2713 RATE-LIMIT UDP dst port 23156 to 1,000 pps: accepted in dry-run: matches 84% of the attack, 0.00% of normal traffic\n- \u2717 DROP UDP dst port 25565 from unknown sources: rejected: a drop on game port 25565 would lock out new players joining; only a rate limit is allowed there\n"
+    }
+  }
+]

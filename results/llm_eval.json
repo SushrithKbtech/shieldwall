@@ -1,176 +1,668 @@
 {
   "summary": {
+    "claims_checked": 79,
+    "claims_supported": 1.0,
+    "claims_misattributed": 0,
+    "claims_unsupported": 0,
+    "fully_faithful": 1.0,
+    "suggestions": 12,
+    "suggestions_accepted": 7,
+    "suggestion_reject_reasons": {
+      "a drop on game port 25565 would lock out new players joining; only a rate limit is allowed there": 3,
+      "a drop on game port 19132 would lock out new players joining; only a rate limit is allowed there": 1,
+      "already in place": 1
+    },
     "model": "gpt-4o-mini",
     "explanations": 13,
     "numeric_grounding": 1.0,
-    "numbers_checked": 49,
+    "numbers_checked": 61,
     "hallucinated_numbers": 0,
     "fully_grounded": 1.0,
     "label_accuracy": 1.0,
     "chat_accuracy": 1.0,
-    "latency_median_s": 1.5688100499974098,
-    "latency_p95_s": 2.721542200015392,
-    "tokens_in_avg": 393.4375,
-    "tokens_out_avg": 77.6875,
-    "cost_per_explanation_usd": 8.170384615384615e-05,
-    "total_cost_usd": 0.00169005
+    "latency_median_s": 1.4538361500017345,
+    "latency_p95_s": 2.2358495999942534,
+    "tokens_in_avg": 674.2380952380952,
+    "tokens_out_avg": 127.9047619047619,
+    "cost_per_explanation_usd": 0.0001086,
+    "total_cost_usd": 0.0056748
   },
   "explanations": [
     {
       "case": "cldap",
-      "text": "Your game server experienced a DDoS attack known as a CLDAP amplification flood, where it received a high volume of malicious traffic from over 2,200 sources. ShieldWall detected and mitigated this attack within a few seconds, successfully serving 98.3% of legitimate traffic, so your players were not affected. No action is needed on your part, as the incident has been resolved.",
-      "numbers": 2,
-      "ungrounded": [],
-      "label_ok": true,
-      "latency_s": 2.721542200015392,
-      "tokens_in": 223,
-      "tokens_out": 80
-    },
-    {
-      "case": "dns",
-      "text": "Your game server experienced a DNS amplification flood attack, where a large volume of malicious traffic peaked at 162,053 packets per second from 2,435 different sources. ShieldWall detected the attack within 2 seconds and mitigated it in 3 seconds, ensuring that 98.5% of legitimate traffic was still served. There is no action needed from you, as the incident has been resolved and players were not affected.",
+      "text": "Your game server experienced a CLDAP amplification flood attack, peaking at 211,141 packets per second from 2,204 distinct sources. ShieldWall detected the attack in 2 seconds and began blocking it within 3 seconds, allowing 98.3% of real player traffic to get through. The incident is now resolved, and you do not need to take any further action.",
       "numbers": 5,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 1.7077317000366747,
-      "tokens_in": 220,
-      "tokens_out": 86
+      "claims": [
+        {
+          "claim": "Your game server experienced a CLDAP amplification flood attack.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The attack peaked at 211,141 packets per second from 2,204 distinct sources.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the attack in 2 seconds and began blocking it within 3 seconds.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "98.3% of real player traffic got through during the incident.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is now resolved.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "You do not need to take any further action.",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 494,
+        "tokens_out": 125
+      },
+      "latency_s": 1.7939364000339992,
+      "tokens_in": 414,
+      "tokens_out": 78
+    },
+    {
+      "case": "dns",
+      "text": "Your server experienced a DNS amplification flood, with a peak of 162,053 packets per second from 2,435 distinct sources. ShieldWall detected the incident in 2 seconds and began mitigating it within 3 seconds, allowing 98.5% of real player traffic to get through. The incident is now resolved, and you do not need to take any action.",
+      "numbers": 5,
+      "ungrounded": [],
+      "label_ok": true,
+      "claims": [
+        {
+          "claim": "Your server experienced a DNS amplification flood",
+          "verdict": "supported"
+        },
+        {
+          "claim": "with a peak of 162,053 packets per second from 2,435 distinct sources",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the incident in 2 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "and began mitigating it within 3 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "allowing 98.5% of real player traffic to get through",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is now resolved",
+          "verdict": "supported"
+        },
+        {
+          "claim": "and you do not need to take any action",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 488,
+        "tokens_out": 131
+      },
+      "latency_s": 1.3719151000259444,
+      "tokens_in": 411,
+      "tokens_out": 75
     },
     {
       "case": "ntp",
-      "text": "Your game server experienced a DDoS attack known as an NTP amplification flood, where it received a high volume of malicious traffic peaking at 129,812 packets per second from 1,570 different sources. ShieldWall detected and mitigated the attack quickly, ensuring that 98.8% of legitimate traffic was still served, so your players were not affected. No action is needed on your part, as the issue has been resolved.",
-      "numbers": 3,
+      "text": "Your server experienced an NTP amplification flood attack, peaking at 129,812 packets per second from 1,570 distinct sources. ShieldWall detected the attack within 2 seconds and began blocking it after 3 seconds, allowing 98.8% of real player traffic to get through. The incident is now resolved, and you do not need to take any action.",
+      "numbers": 5,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 2.149730000004638,
-      "tokens_in": 223,
-      "tokens_out": 90
+      "claims": [
+        {
+          "claim": "Your server experienced an NTP amplification flood attack",
+          "verdict": "supported"
+        },
+        {
+          "claim": "peaking at 129,812 packets per second from 1,570 distinct sources",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the attack within 2 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "and began blocking it after 3 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "allowing 98.8% of real player traffic to get through",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is now resolved",
+          "verdict": "supported"
+        },
+        {
+          "claim": "you do not need to take any action",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 492,
+        "tokens_out": 131
+      },
+      "latency_s": 1.3316032000002451,
+      "tokens_in": 414,
+      "tokens_out": 76
     },
     {
       "case": "syn",
-      "text": "Your game server experienced a TCP SYN flood attack, where 2,490 sources attempted to overwhelm the server with connection requests, peaking at 159,402 packets per second. ShieldWall detected the attack quickly and mitigated it within 3 seconds, allowing 98.4% of legitimate traffic to be served without significant impact on players. No action is needed from you at this time, as the incident has been resolved.",
-      "numbers": 4,
+      "text": "Your game server experienced a TCP SYN flood attack, with a peak of 159,402 packets per second from 2,490 distinct sources. ShieldWall detected the incident in 2 seconds and began blocking the attack traffic within 3 seconds, allowing 98.4% of real player traffic to get through. The incident is now resolved, and you do not need to take any action.",
+      "numbers": 5,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 1.469299399992451,
-      "tokens_in": 227,
-      "tokens_out": 86
+      "claims": [
+        {
+          "claim": "Your game server experienced a TCP SYN flood attack",
+          "verdict": "supported"
+        },
+        {
+          "claim": "with a peak of 159,402 packets per second from 2,490 distinct sources",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the incident in 2 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "and began blocking the attack traffic within 3 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "allowing 98.4% of real player traffic to get through",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is now resolved",
+          "verdict": "supported"
+        },
+        {
+          "claim": "you do not need to take any action",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 500,
+        "tokens_out": 134
+      },
+      "latency_s": 1.3749535999959335,
+      "tokens_in": 419,
+      "tokens_out": 79
     },
     {
       "case": "udp",
-      "text": "Your game server experienced a UDP flood attack, with a peak of 131,378 packets per second coming from 2,479 different sources. ShieldWall detected the attack quickly and mitigated it within 3 seconds, allowing 99.1% of legitimate traffic to continue unaffected. There\u2019s no action needed from you at this time, as the incident has been resolved.",
-      "numbers": 4,
+      "text": "Your game server experienced a UDP flood attack with a peak of 131,378 packets per second from 2,479 distinct sources. ShieldWall detected the attack within 2 seconds and began blocking it after 3 seconds, allowing 99.1% of real player traffic to get through. The incident is now resolved, and no further action is needed on your part.",
+      "numbers": 5,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 1.5074822999886237,
-      "tokens_in": 223,
+      "claims": [
+        {
+          "claim": "Your game server experienced a UDP flood attack with a peak of 131,378 packets per second from 2,479 distinct sources.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the attack within 2 seconds and began blocking it after 3 seconds.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "allowing 99.1% of real player traffic to get through.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is now resolved, and no further action is needed on your part.",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 491,
+        "tokens_out": 109
+      },
+      "latency_s": 2.0431888000457548,
+      "tokens_in": 414,
       "tokens_out": 75
     },
     {
       "case": "flash_crowd",
-      "text": "The incident was a legitimate traffic surge, not a DDoS attack, with a peak of 7395 packets per second from 1882 sources. ShieldWall monitored the situation for 3 seconds and confirmed that all handshakes completed normally, ensuring that 100% of the traffic was served without any disruption to players. There is no action needed from you at this time.",
+      "text": "The server experienced a legitimate traffic surge with a peak of 7395 packets per second from 1882 distinct sources. ShieldWall detected the change in 3 seconds and confirmed that 100% of real player traffic got through during the incident. The incident is now resolved, and you do not need to take any action.",
       "numbers": 4,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 1.3299480000277981,
-      "tokens_in": 227,
-      "tokens_out": 77
+      "claims": [
+        {
+          "claim": "The server experienced a legitimate traffic surge with a peak of 7395 packets per second from 1882 distinct sources.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the change in 3 seconds and confirmed that 100% of real player traffic got through during the incident.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is now resolved, and you do not need to take any action.",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 485,
+        "tokens_out": 91
+      },
+      "latency_s": 1.3138923000078648,
+      "tokens_in": 418,
+      "tokens_out": 65
     },
     {
       "case": "mega_cldap",
-      "text": "Your game server experienced a DDoS attack known as a CLDAP amplification flood, where it received a peak of 936,014 packets per second from 2,170 different sources. ShieldWall detected the attack within 2 seconds and mitigated it in 3 seconds, allowing 68.1% of legitimate traffic to be served. No action is required from you at this time, as the incident has been resolved.",
-      "numbers": 5,
-      "ungrounded": [],
-      "label_ok": true,
-      "latency_s": 2.0899782000342384,
-      "tokens_in": 223,
-      "tokens_out": 86
-    },
-    {
-      "case": "cldap",
-      "text": "Your game server experienced a DDoS attack known as a CLDAP amplification flood, where it received a peak of 209,341 packets per second from 2,372 different sources. ShieldWall detected the attack and mitigated it within 3 seconds, allowing 98.4% of legitimate traffic to be served without significant impact on your players. No action is required from you at this time, as the incident has been resolved.",
+      "text": "A CLDAP amplification flood attack is currently affecting your game server, with a peak of 936,014 packets per second coming from 2,170 distinct sources. ShieldWall detected the attack within 2 seconds and began mitigating it after 3 seconds, and while the incident is still ongoing, real player traffic is getting through normally again. You do not need to take any action at this time, as ShieldWall is actively blocking the attack traffic.",
       "numbers": 4,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 1.630137800006196,
-      "tokens_in": 223,
-      "tokens_out": 88
+      "claims": [
+        {
+          "claim": "A CLDAP amplification flood attack is currently affecting your game server.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The peak of 936,014 packets per second is coming from 2,170 distinct sources.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the attack within 2 seconds and began mitigating it after 3 seconds.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is still ongoing.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "Real player traffic is getting through normally again.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "You do not need to take any action at this time.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall is actively blocking the attack traffic.",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 511,
+        "tokens_out": 141
+      },
+      "latency_s": 2.2358495999942534,
+      "tokens_in": 419,
+      "tokens_out": 90
     },
     {
-      "case": "dns",
-      "text": "Your game server experienced a DNS amplification flood attack, where 99% of the traffic was malicious UDP responses from 2,525 distinct sources. ShieldWall detected the attack within 2 seconds and mitigated it in 3 seconds, ensuring that 98.5% of legitimate traffic was still served. There is no action needed on your part, and players were not affected.",
+      "case": "cldap",
+      "text": "Your game server experienced a CLDAP amplification flood attack, peaking at 209,341 packets per second from 2,372 distinct sources. ShieldWall detected the attack in 2 seconds and began blocking it within 3 seconds, allowing 98.4% of real player traffic to get through during the incident. The attack has been resolved, and you do not need to take any action.",
       "numbers": 5,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 1.6414696000283584,
-      "tokens_in": 220,
+      "claims": [
+        {
+          "claim": "Your game server experienced a CLDAP amplification flood attack.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The attack peaked at 209,341 packets per second from 2,372 distinct sources.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the attack in 2 seconds and began blocking it within 3 seconds.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "98.4% of real player traffic got through during the incident.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The attack has been resolved.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "You do not need to take any action.",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 496,
+        "tokens_out": 124
+      },
+      "latency_s": 1.398479099967517,
+      "tokens_in": 414,
+      "tokens_out": 80
+    },
+    {
+      "case": "dns",
+      "text": "Your game server experienced a DNS amplification flood attack, peaking at 157,421 packets per second from 2,525 distinct sources. ShieldWall detected the attack within 2 seconds and began blocking it within 3 seconds, allowing 98.5% of real player traffic to get through. The incident is now resolved, and you do not need to take any action.",
+      "numbers": 5,
+      "ungrounded": [],
+      "label_ok": true,
+      "claims": [
+        {
+          "claim": "Your game server experienced a DNS amplification flood attack",
+          "verdict": "supported"
+        },
+        {
+          "claim": "peaking at 157,421 packets per second from 2,525 distinct sources",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the attack within 2 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "and began blocking it within 3 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "allowing 98.5% of real player traffic to get through",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is now resolved",
+          "verdict": "supported"
+        },
+        {
+          "claim": "you do not need to take any action",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 489,
+        "tokens_out": 131
+      },
+      "latency_s": 1.5016736999968998,
+      "tokens_in": 411,
       "tokens_out": 76
     },
     {
       "case": "ntp",
-      "text": "Your game server experienced an NTP amplification flood attack, where a large volume of malicious traffic peaked at 125,476 packets per second from 1,584 different sources. ShieldWall detected and mitigated the attack quickly, maintaining 98.9% service availability for your players. No action is needed on your part, as the incident has been resolved.",
-      "numbers": 3,
+      "text": "Your game server experienced an NTP amplification flood attack, peaking at 125,476 packets per second from 1,584 distinct sources. ShieldWall detected the attack within 2 seconds and began blocking it after 3 seconds, allowing 98.9% of real player traffic to get through. The incident is now resolved, and you do not need to take any action.",
+      "numbers": 5,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 1.3244522000313736,
-      "tokens_in": 223,
-      "tokens_out": 72
+      "claims": [
+        {
+          "claim": "Your game server experienced an NTP amplification flood attack",
+          "verdict": "supported"
+        },
+        {
+          "claim": "peaking at 125,476 packets per second from 1,584 distinct sources",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the attack within 2 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "began blocking it after 3 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "allowing 98.9% of real player traffic to get through",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is now resolved",
+          "verdict": "supported"
+        },
+        {
+          "claim": "you do not need to take any action",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 493,
+        "tokens_out": 132
+      },
+      "latency_s": 1.8247941000154242,
+      "tokens_in": 414,
+      "tokens_out": 77
     },
     {
       "case": "syn",
-      "text": "Your game server experienced a TCP SYN flood attack, where a large number of connection attempts were made without completing the handshake, peaking at over 160,000 packets per second from numerous unknown sources. ShieldWall detected the attack within 2 seconds and mitigated it in 3 seconds, allowing 98.5% of legitimate traffic to continue without significant disruption. There is no action needed from you, as the incident has been resolved.",
+      "text": "Your game server experienced a TCP SYN flood attack, with a peak of 160,942 packets per second from 2,605 distinct sources. ShieldWall detected the attack within 2 seconds and began blocking the malicious traffic, allowing 98.5% of real player traffic to get through. The incident is now resolved, and no further action is needed on your part.",
       "numbers": 4,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 1.8600035000126809,
-      "tokens_in": 227,
-      "tokens_out": 88
+      "claims": [
+        {
+          "claim": "Your game server experienced a TCP SYN flood attack",
+          "verdict": "supported"
+        },
+        {
+          "claim": "with a peak of 160,942 packets per second from 2,605 distinct sources",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the attack within 2 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "and began blocking the malicious traffic",
+          "verdict": "supported"
+        },
+        {
+          "claim": "allowing 98.5% of real player traffic to get through",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is now resolved",
+          "verdict": "supported"
+        },
+        {
+          "claim": "and no further action is needed on your part",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 496,
+        "tokens_out": 131
+      },
+      "latency_s": 1.5878652000101283,
+      "tokens_in": 419,
+      "tokens_out": 75
     },
     {
       "case": "udp",
-      "text": "We experienced a UDP flood attack on your game server, with a peak packet rate of 129,298 packets per second from 2,468 different sources. ShieldWall detected and mitigated the attack quickly, maintaining 99.1% uptime for your server. No action is needed on your part, as the issue has been resolved.",
-      "numbers": 3,
+      "text": "Your game server experienced a UDP flood attack with a peak of 129,298 packets per second from 2,468 distinct sources. ShieldWall detected the incident in 2 seconds and began blocking the attack traffic within 3 seconds, allowing 99.1% of real player traffic to get through. The incident is now resolved, and you do not need to take any action.",
+      "numbers": 5,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 1.3410048999940045,
-      "tokens_in": 223,
-      "tokens_out": 68
+      "claims": [
+        {
+          "claim": "Your game server experienced a UDP flood attack with a peak of 129,298 packets per second from 2,468 distinct sources.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the incident in 2 seconds and began blocking the attack traffic within 3 seconds.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "allowing 99.1% of real player traffic to get through.",
+          "verdict": "supported"
+        },
+        {
+          "claim": "The incident is now resolved, and you do not need to take any action.",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 493,
+        "tokens_out": 111
+      },
+      "latency_s": 1.4059986000065692,
+      "tokens_in": 414,
+      "tokens_out": 77
     },
     {
       "case": "mega_cldap",
-      "text": "Your game server experienced a DDoS attack known as a CLDAP amplification flood, peaking at over 936,000 packets per second from 2,195 sources. ShieldWall detected and mitigated the attack, allowing 69.7% of legitimate traffic to be served. No action is needed on your part, as the incident has been resolved.",
-      "numbers": 3,
+      "text": "Your game server is currently experiencing a CLDAP amplification flood attack, with a peak of 936,502 packets per second from 2,195 distinct sources. ShieldWall detected the issue in 2 seconds and began blocking the attack traffic within 3 seconds, and while the incident is still ongoing, real player traffic is getting through normally. You do not need to take any action at this time.",
+      "numbers": 4,
       "ungrounded": [],
       "label_ok": true,
-      "latency_s": 1.4363718999666162,
-      "tokens_in": 223,
-      "tokens_out": 72
+      "claims": [
+        {
+          "claim": "Your game server is currently experiencing a CLDAP amplification flood attack",
+          "verdict": "supported"
+        },
+        {
+          "claim": "with a peak of 936,502 packets per second from 2,195 distinct sources",
+          "verdict": "supported"
+        },
+        {
+          "claim": "ShieldWall detected the issue in 2 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "and began blocking the attack traffic within 3 seconds",
+          "verdict": "supported"
+        },
+        {
+          "claim": "while the incident is still ongoing",
+          "verdict": "supported"
+        },
+        {
+          "claim": "real player traffic is getting through normally",
+          "verdict": "supported"
+        },
+        {
+          "claim": "You do not need to take any action at this time",
+          "verdict": "supported"
+        }
+      ],
+      "judge_usage": {
+        "tokens_in": 501,
+        "tokens_out": 134
+      },
+      "latency_s": 1.9671505999867804,
+      "tokens_in": 419,
+      "tokens_out": 80
     }
   ],
   "chat": [
     {
       "question": "Why did you block port 389?",
-      "answer": "Port 389 was blocked because your server was targeted in a CLDAP amplification flood attack. This attack involved a large volume of UDP traffic from that port, which was not initiated by your server but rather reflected replies from other sources. Blocking this port helps prevent such attacks from affecting your server.",
+      "answer": "Port 389 was blocked because your server was targeted by a CLDAP amplification flood attack. This attack involved UDP traffic from that port, and blocking it helped mitigate the threat.",
       "correct": true,
-      "latency_s": 1.3361518000019714,
-      "tokens_in": 1132,
-      "tokens_out": 58
+      "latency_s": 1.0611329000093974,
+      "tokens_in": 1175,
+      "tokens_out": 35
     },
     {
       "question": "What attacks happened?",
-      "answer": "Your server experienced two attacks:\n\n1. A **TCP SYN flood** attack from about 2,468 sources, peaking at 158,720 packets per second. This attack lasted from 151 seconds to 182 seconds.\n   \n2. A **CLDAP amplification flood** attack from about 2,285 sources, peaking at 212,590 packets per second. This attack lasted from 41 seconds to 72 seconds.\n\nBoth attacks were mitigated by ShieldWall within 3 seconds of detection, allowing 98% of real player traffic to get through.",
+      "answer": "Two attacks occurred on your server:\n\n1. A TCP SYN flood attack from about 2,468 sources, peaking at 158,720 packets per second. This incident lasted from 151 seconds to 182 seconds.\n  \n2. A CLDAP amplification flood attack from about 2,285 sources, peaking at 212,590 packets per second. This incident lasted from 41 seconds to 72 seconds.",
       "correct": true,
-      "latency_s": 1.7732481999555603,
-      "tokens_in": 1128,
-      "tokens_out": 115
+      "latency_s": 1.8375724999932572,
+      "tokens_in": 1171,
+      "tokens_out": 85
     },
     {
       "question": "How many attacks were there?",
-      "answer": "There were two attacks on your server. The first was a CLDAP amplification flood, and the second was a TCP SYN flood.",
+      "answer": "There were two attacks: a TCP SYN flood and a CLDAP amplification flood.",
       "correct": true,
-      "latency_s": 0.9817592999897897,
-      "tokens_in": 1130,
-      "tokens_out": 26
+      "latency_s": 0.7575122000416741,
+      "tokens_in": 1173,
+      "tokens_out": 16
+    }
+  ],
+  "suggestions": [
+    {
+      "case": "cldap",
+      "rule": "DROP UDP src port 389 from unknown sources",
+      "accepted": true,
+      "llm_reason": "Drop all UDP traffic from unknown sources to mitigate against reflection attacks.",
+      "verdict": "accepted in dry-run: matches 99% of the attack, 0.00% of normal traffic"
+    },
+    {
+      "case": "cldap",
+      "rule": "RATE-LIMIT UDP src port 389 from unknown sources to 1,000 pps",
+      "accepted": true,
+      "llm_reason": "Rate limit UDP traffic from unknown sources to reduce the impact of amplification attacks.",
+      "verdict": "accepted in dry-run: matches 99% of the attack, 0.00% of normal traffic"
+    },
+    {
+      "case": "cldap",
+      "rule": "DROP UDP dst port 25565 from unknown sources",
+      "accepted": false,
+      "llm_reason": "Drop all UDP traffic targeting the game port from unknown sources to prevent potential disruptions.",
+      "verdict": "rejected: a drop on game port 25565 would lock out new players joining; only a rate limit is allowed there"
+    },
+    {
+      "case": "dns",
+      "rule": "DROP UDP src port 53 from unknown sources",
+      "accepted": true,
+      "llm_reason": "Drop all UDP traffic from unknown sources to mitigate amplification attacks.",
+      "verdict": "accepted in dry-run: matches 99% of the attack, 0.00% of normal traffic"
+    },
+    {
+      "case": "dns",
+      "rule": "RATE-LIMIT UDP src port 53 from unknown sources to 1,000 pps",
+      "accepted": true,
+      "llm_reason": "Rate limit UDP traffic from unknown sources to reduce the impact of potential amplification attacks.",
+      "verdict": "accepted in dry-run: matches 99% of the attack, 0.00% of normal traffic"
+    },
+    {
+      "case": "syn",
+      "rule": "DROP TCP dst port 25565 SYN only from unknown sources",
+      "accepted": false,
+      "llm_reason": "Drop excessive SYN packets from unknown sources to reduce server load.",
+      "verdict": "rejected: a drop on game port 25565 would lock out new players joining; only a rate limit is allowed there"
+    },
+    {
+      "case": "syn",
+      "rule": "RATE-LIMIT TCP dst port 25565 SYN only from unknown sources to 50 pps",
+      "accepted": true,
+      "llm_reason": "Further rate limit SYN packets from unknown sources to minimize impact on server performance.",
+      "verdict": "accepted in dry-run: matches 99% of the attack, 0.11% of normal traffic"
+    },
+    {
+      "case": "udp",
+      "rule": "DROP UDP dst port 25565 from unknown sources",
+      "accepted": false,
+      "llm_reason": "Drop UDP packets targeting the game port from unknown sources to reduce flood impact.",
+      "verdict": "rejected: a drop on game port 25565 would lock out new players joining; only a rate limit is allowed there"
+    },
+    {
+      "case": "udp",
+      "rule": "DROP UDP dst port 19132 from unknown sources",
+      "accepted": false,
+      "llm_reason": "Drop UDP packets targeting the Bedrock edition port from unknown sources to reduce flood impact.",
+      "verdict": "rejected: a drop on game port 19132 would lock out new players joining; only a rate limit is allowed there"
+    },
+    {
+      "case": "udp",
+      "rule": "RATE-LIMIT UDP from unknown sources to 1,000 pps",
+      "accepted": false,
+      "llm_reason": "Rate limit all UDP traffic from unknown sources to further mitigate flood effects.",
+      "verdict": "rejected: already in place"
+    },
+    {
+      "case": "mega_cldap",
+      "rule": "DROP UDP src port 389 from unknown sources",
+      "accepted": true,
+      "llm_reason": "Drop all UDP traffic from unknown sources to mitigate amplification attacks.",
+      "verdict": "accepted in dry-run: matches 100% of the attack, 0.00% of normal traffic"
+    },
+    {
+      "case": "mega_cldap",
+      "rule": "RATE-LIMIT UDP src port 389 from unknown sources to 1,000 pps",
+      "accepted": true,
+      "llm_reason": "Rate limit UDP traffic from unknown sources to reduce impact of potential amplification attacks.",
+      "verdict": "accepted in dry-run: matches 100% of the attack, 0.00% of normal traffic"
     }
   ]
 }

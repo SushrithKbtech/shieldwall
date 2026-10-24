@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.round(n).toLocaleString("en-US");
 const pct = (x, d = 1) => `${(100 * x).toFixed(d)}%`;
+const exact = (x) => (x === 1 ? "100%" : 100 * x >= 99.95 ? `${(100 * x).toFixed(3)}%` : pct(x)); // never round 99.998% up
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const short = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `${(n / 1e3).toFixed(0)}k` : fmt(n));
@@ -250,6 +251,38 @@ $("ask").addEventListener("submit", (ev) => {
 });
 document.querySelectorAll(".chips button").forEach((b) => b.addEventListener("click", () => ask(b.dataset.q)));
 
+function mdToHtml(md) {
+  const out = [];
+  let list = false;
+  for (const raw of md.split("\n")) {
+    const line = esc(raw).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    if (raw.startsWith("- ")) {
+      if (!list) { out.push("<ul>"); list = true; }
+      const cls = raw.startsWith("- ✓") ? "ok" : raw.startsWith("- ✗") ? "no" : "";
+      out.push(`<li class="${cls}">${line.slice(2)}</li>`);
+      continue;
+    }
+    if (list) { out.push("</ul>"); list = false; }
+    if (raw.startsWith("## ")) out.push(`<h4>${line.slice(3)}</h4>`);
+    else if (raw.trim()) out.push(`<p>${line}</p>`);
+  }
+  if (list) out.push("</ul>");
+  return out.join("");
+}
+
+$("report-btn").addEventListener("click", async () => {
+  const btn = $("report-btn");
+  btn.disabled = true;
+  btn.textContent = "Writing report…";
+  try {
+    const r = await (await fetch("/api/report", { method: "POST", body: "{}" })).json();
+    $("report").innerHTML = mdToHtml(r.markdown || "No report.") + (r.backend ? `<p class="hint">written by ${esc(r.backend)}</p>` : "");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Write incident report + suggest rules";
+  }
+});
+
 /* ---------------- results tab ---------------- */
 let results = null;
 let perTypeChart = null;
@@ -266,9 +299,9 @@ function showLevel(level) {
   const m = results.metrics.levels[level];
   document.querySelectorAll("#level-seg button").forEach((b) => b.classList.toggle("active", b.dataset.level === level));
   $("level-hint").textContent = LEVEL_HINT[level];
-  $("r-acc").textContent = pct(m.accuracy);
-  $("r-prec").textContent = pct(m.precision);
-  $("r-rec").textContent = pct(m.recall);
+  $("r-acc").textContent = exact(m.accuracy);
+  $("r-prec").textContent = exact(m.precision);
+  $("r-rec").textContent = exact(m.recall);
   $("r-f1").textContent = m.f1.toFixed(3);
   $("cm-tp").textContent = short(m.tp);
   $("cm-fp").textContent = short(m.fp);
@@ -284,9 +317,28 @@ async function loadResults() {
   const S = results.results || [];
   const K = results.kernel_test;
   const L = results.llm_eval;
+  const R = [...(results.replay || []), ...(results.replay_cic || [])];
+  if (R.length) {
+    $("real-table").innerHTML = "<tr><th>Attack data</th><th>Inside</th><th>Identified as</th><th>Detected</th><th>Blocked</th><th>Attack dropped once blocking</th><th>Real traffic dropped</th><th>Players served (without → with)</th></tr>" +
+      R.map((r) => {
+        const c = r.capture, w = r.with;
+        const src = c.file.includes("archive.zip") ? "CIC-DDoS2019 " + c.file.split(":")[1] : "StopDDoS " + c.file;
+        return `<tr><td>${esc(src)}</td><td class="num">${fmt(c.native_pps)} pps · ${fmt(c.unique_sources)} source${c.unique_sources === 1 ? "" : "s"}${c.fragment_share ? ` · ${(100 * c.fragment_share).toFixed(0)}% fragments` : ""}</td>` +
+          `<td>${esc(r.label)}</td><td class="num">${w.detect_s ?? "-"} s</td><td class="num">${w.mitigate_s ?? "-"} s</td>` +
+          `<td class="num good-txt">${w.attack_dropped_after_block_pct.toFixed(1)}%</td><td class="num">${w.legit_dropped_pct.toFixed(3)}%</td>` +
+          `<td class="num">${r.without.served_pct.toFixed(1)}% → <span class="good-txt">${w.served_pct.toFixed(1)}%</span></td></tr>`;
+      }).join("");
+    $("real-findings").innerHTML = [
+      ["Fragments", "Real amplification floods are 14-24% IP fragments with no ports. A port rule alone let them through, so ShieldWall now adds a fragment rule (verified on the Linux kernel)."],
+      ["Multi-vector", "The real memcached capture mixes Memcached, NTP and DNS at once. ShieldWall now writes a rule for every vector instead of only the biggest."],
+      ["Single host", "CIC-DDoS2019's attacks all come from one machine. Fingerprints missed two of them, so the Count-Min Sketch heavy hitter now blocks that address."],
+    ].map(([b, t]) => `<div><b>${b}</b>${t}</div>`).join("");
+  } else {
+    $("real-table").innerHTML = `<tr><td class="hint">Run <code>shieldwall replay capture.pcap</code> to fill this in.</td></tr>`;
+  }
 
   if (M) {
-    $("res-intro").textContent = `Measured over ${M.trials} randomized trials (${M.attacks} attacks of 5 kinds from 3,000 to 300,000 packets/s, and ${M.negatives} non-attacks), plus a test on a real Linux kernel and an evaluation of the AI assistant.`;
+    $("res-intro").textContent = `Three kinds of evidence: real attack data (public captures and CIC-DDoS2019) replayed through the engine, ${M.trials} randomized trials in the simulated lab (${M.attacks} attacks, ${M.negatives} non-attacks), and the XDP program tested on a real Linux kernel. Plus an evaluation of the AI assistant.`;
     showLevel("window");
     $("extra-facts").innerHTML = [
       [pct(M.type_accuracy, 0), "of caught attacks were given the right name"],
@@ -347,6 +399,8 @@ async function loadResults() {
       <div><b>${fmt(K.player_passed)} / ${fmt(K.player_sent)}</b><span>player packets let through</span></div>
       <div><b>${fmt(K.sources_estimated)}</b><span>senders estimated (truth: ${fmt(K.sources_true)})</span></div>
       <div><b>${fmt(K.dry_run_dropped)}</b><span>packets dropped in dry-run mode (should be 0)</span></div>
+      ${K.fragments_sent ? `<div><b>${fmt(K.fragments_dropped)} / ${fmt(K.fragments_sent)}</b><span>IP fragments (no ports) dropped by the fragment rule</span></div>
+      <div><b>${fmt(K.heavy_hitter_dropped)} / ${fmt(K.heavy_hitter_sent)}</b><span>packets from one flooding host dropped by the blocklist, ${fmt(K.others_passed)} others passed</span></div>` : ""}
     </div>
     <p class="hint">Real packets sent with scapy through the XDP program on Linux ${esc(K.kernel)}. Identified as: <b>${esc(K.classified_as)}</b>.</p>
     <span class="pass">Kernel test passed</span>`;
@@ -367,7 +421,11 @@ async function loadResults() {
       <div><b>${x.latency_median_s.toFixed(1)} s</b><span>median reply time (runs in the background)</span></div>
       <div><b>$${x.cost_per_explanation_usd.toFixed(5)}</b><span>cost per explanation</span></div>
       <div><b>$${x.total_cost_usd.toFixed(4)}</b><span>cost of this whole evaluation</span></div>
+      ${x.claims_checked ? `<div><b>${pct(x.claims_supported, 0)}</b><span>of claims judged supported with the right meaning (LLM-as-judge, ${x.claims_checked} claims)</span></div>
+      <div><b>${x.suggestions_accepted}/${x.suggestions}</b><span>suggested rules accepted by the controller (in dry-run); the rest were rejected as unsafe or useless</span></div>` : ""}
     </div>
+    ${results.llm_eval_prompt_v1 ? (() => { const v = results.llm_eval_prompt_v1.summary; return `<div class="quote"><small>Prompt v1 → v2 (fixed after the evaluation found over-claiming and useless suggestions)</small>
+      Claims judged faithful ${pct(v.claims_supported, 0)} → <b>${pct(x.claims_supported, 0)}</b> · perfect explanations ${pct(v.fully_faithful, 0)} → <b>${pct(x.fully_faithful, 0)}</b> · suggestions accepted ${v.suggestions_accepted}/${v.suggestions} → <b>${x.suggestions_accepted}/${x.suggestions}</b></div>`; })() : ""}
     <div class="quote"><small>Example explanation (${esc(ex.case)})</small>${esc(ex.text)}</div>
     <div class="quote"><small>Q: ${esc(qa.question)}</small>${esc(qa.answer)}</div>`;
   } else {

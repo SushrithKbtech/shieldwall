@@ -30,6 +30,7 @@ class Packet:
     size: int
     w: float = 1.0
     legit: bool = True  # ground truth, only known inside the simulator
+    frag: bool = False  # non-first IP fragment: no L4 header, so no ports
 
 
 @dataclass
@@ -56,6 +57,11 @@ class Features:
     src_entropy: float
     dport_entropy: float
     top_talkers: list[tuple[str, float]]
+    frag_share: float = 0.0                              # share of packets that are IP fragments
+    top_share: float = 0.0                               # share of traffic from the single biggest sender
+    top_src: int | None = None                           # that sender (Count-Min Sketch heavy hitter)
+    top_src_new: bool = False                            # ...and it was never seen in calm traffic
+    amp_ports: list[int] = field(default_factory=list)   # every amplification port with >=5% of traffic
 
 
 @dataclass
@@ -79,6 +85,9 @@ class Rule:
     dport: int = 0
     syn_only: bool = False
     untrusted_only: bool = False
+    frag_only: bool = False  # matches non-first IP fragments (which carry no ports)
+    src: int = 0             # source address/prefix (0 = any); installed in the XDP blocklist map
+    src_mask: int = 0
     rate_pps: float = 0.0
     expires_at: int = 0
     reason: str = ""
@@ -86,7 +95,11 @@ class Rule:
     hits: float = 0.0
 
     def matches(self, p: Packet, trusted: set[int]) -> bool:
-        if p.proto != self.proto:
+        if self.src_mask and (p.src & self.src_mask) != self.src:
+            return False
+        if self.proto and p.proto != self.proto:
+            return False
+        if self.proto and self.frag_only != p.frag:
             return False
         if self.sport and p.sport != self.sport:
             return False
@@ -99,14 +112,19 @@ class Rule:
         return True
 
     def describe(self) -> str:
-        proto = {TCP: "TCP", UDP: "UDP"}.get(self.proto, str(self.proto))
+        proto = {TCP: "TCP", UDP: "UDP", 0: "ALL"}.get(self.proto, str(self.proto))
         parts = [proto]
+        if self.src_mask:
+            plen = bin(self.src_mask).count("1")
+            parts.append(f"from {ip_str(self.src)}" + ("" if plen == 32 else f"/{plen}"))
         if self.sport:
             parts.append(f"src port {self.sport}")
         if self.dport:
             parts.append(f"dst port {self.dport}")
         if self.syn_only:
             parts.append("SYN only")
+        if self.frag_only:
+            parts.append("fragments")
         if self.untrusted_only:
             parts.append("from unknown sources")
         what = " ".join(parts)

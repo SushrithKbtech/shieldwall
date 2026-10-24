@@ -1,129 +1,96 @@
-# ShieldWall: progress presentation script
+# ShieldWall: presentation script (Team RSST)
 
-Two speakers, about 7 minutes plus questions. **A** and **B** take turns. Simple words on purpose: say it like you're explaining to a friend, not reading a paper.
+Four speakers, about 8 minutes plus questions. Simple words on purpose: say it like you're explaining to a friend.
 
-Before you start: run `shieldwall dashboard`, open http://127.0.0.1:8000, and wait 20 seconds so the graph has a flat "normal" line.
-
----
-
-## 1. The problem (A, ~1 min)
-
-**A:** Imagine you run a small Minecraft server for your friends. One day someone pays about 38 dollars an hour to a DDoS-for-hire service. Thousands of hacked devices start sending junk traffic to your server at the same time. Your server can't tell real players from junk, it gets overloaded, and everyone gets kicked.
-
-**A:** This is really common. Gaming is the most attacked industry, about 37% of all DDoS attacks. Big companies buy protection from Cloudflare. A student or a small server owner can't afford that and doesn't know what to do. That gap is who we're building for.
-
-## 2. Our idea in one line (B, ~30 s)
-
-**B:** ShieldWall is a smart bouncer that sits in front of a small server. It does three things: it **detects** an attack in seconds, it **blocks** the bad traffic while real players keep playing, and it **explains** what happened in plain English.
-
-**B:** And one honest limit we always say upfront: if the attack is bigger than the server's internet connection, no software on that server can fix it. For that case we ask the internet provider upstream to filter it, and I'll show that later.
-
-## 3. How it works (A, ~1.5 min)
-
-**A:** The main idea is two halves running on two different clocks.
-
-**A:** The first half lives inside the Linux kernel, using a technology called eBPF and XDP. It runs on every single packet, before the computer does any real work on it. Its job is tiny: look at the packet, add to some counters, and if there's a rule saying "drop this", drop it. That's it. It's fast because it doesn't think.
-
-**A:** The second half runs once every second in normal Python. It reads those counters, decides if there's an attack, figures out what kind, and writes a blocking rule back down to the kernel.
-
-**A:** The two halves only talk through shared tables called BPF maps. So: the cheap work, counting and dropping, happens in the kernel. The hard thinking happens in safe userspace. That's the same design big protection companies use.
-
-## 4. The detection maths (B, ~1.5 min)
-
-**B:** We don't use a fixed rule like "alert above 10,000 packets per second", because that's wrong at 3 a.m. and wrong again at peak time. Instead three methods vote.
-
-**B:** One: we learn what normal looks like with a moving average, and measure how far we are from it in standard deviations. That's a z-score. Normal is within about 3. An attack is often over 1,000.
-
-**B:** Two: CUSUM. It adds up small increases over time, so it catches an attack that ramps up slowly.
-
-**B:** Three: entropy, which measures how spread out the sources are. A botnet suddenly spreads traffic across thousands of new addresses, so entropy jumps.
-
-**B:** We only alert if at least two agree, it lasts at least two seconds, and the jump is big in absolute terms. That keeps false alarms down.
-
-**B:** To track millions of addresses in tiny memory we use three classic data structures: a Count-Min Sketch to find the top senders, a HyperLogLog to count unique sources in 1 KB, and a Bloom filter to remember who we've seen before.
-
-## 5. Live demo (A drives, B narrates, ~2 min)
-
-*(Tip: if anyone asks how a model works, the **How it works** tab explains each one with an everyday example and its live value.)*
-
-**A:** *(points at the dashboard)* This is normal traffic, about 2,000 packets per second of players. The dotted line is the baseline it learned by itself.
-
-**A:** *(click **CLDAP amplification**)* I've just started an attack in our isolated lab: 200,000 packets per second.
-
-**B:** Watch the banner at the top turn red: "Under attack: CLDAP amplification flood". In about 2 seconds the three alarms on the right light up, and the step tracker moves from Watching to Detected, Identified and Blocked. It knows the type because the traffic comes from port 389, and our server never uses that service. That's the giveaway for amplification attacks.
-
-**B:** Now look at the green line, traffic actually reaching the server. It drops back to normal. Under "What is being blocked" it says "Dropping UDP traffic coming from port 389". And the player success graph went back to 100%.
-
-**A:** And here's the AI assistant, which is gpt-4o-mini. *(read the explanation out loud)* We can also ask it questions: *(click "Why did you block it?")*
-
-**B:** Important point: the AI only explains. The blocking decision is made by the maths in milliseconds. An LLM is too slow and unpredictable to decide what to block, so we never let it.
-
-**A:** *(click **Flash crowd**)* Now a different case: lots of real players join at once, like a launch day. Traffic triples.
-
-**B:** The banner turns yellow and says "Busy, but it's real players". It blocks nobody, because the connections complete normally and the traffic mix looks like real players. Not punishing your own users is the hardest part of this problem.
-
-**A:** *(optional, click **Bigger than the link**)* Last one: a 25 Gbps attack into a 10 Gbps connection. The pipe is full before we can do anything locally, so ShieldWall sends the rule upstream as a BGP FlowSpec rule, and players recover.
-
-## 6. Results (B, ~45 s)
-
-**B:** We tested four scenarios automatically, each with and without ShieldWall on the same traffic.
-
-**B:** Without it, real players got 30 to 50% of their traffic through during an attack. With it, 98 to 99%. Detection takes 2 seconds and blocking 3 seconds. In the flash-crowd test it added zero rules and dropped zero real traffic. Even the bigger-than-the-link attack recovered to about 96% once the upstream filter kicked in.
-
-**B:** *(click the **Results** tab)* We also measured accuracy, precision, recall and F1 over 60 random trials with weak and strong attacks, flash crowds and quiet periods. Precision is 100%: it never once called normal traffic an attack. F1 is 0.97 per second and 0.99 per attack. The confusion matrix shows zero false alarms. We know the right answer for every second because our lab traffic generator knows exactly when each attack ran.
-
-**A:** Because this is an LLM project, we also tested the LLM itself. We checked every number gpt-4o-mini wrote against the real facts: 100% matched, so no hallucinated numbers. It named the right attack every time, answered chat questions correctly, replied in about 1.6 seconds, and each explanation costs less than a hundredth of a cent.
-
-## 7. Wrap-up (A, ~45 s)
-
-**A:** What we built: the kernel XDP program in C, the detection engine with the three voting methods and three data structures, a classifier for five attack types, mitigation with expiring rules and safety limits, upstream escalation, the AI explainer, the SQLite log, this dashboard, and a test harness.
-
-**A:** And it runs on a real kernel. Our kernel test loads the XDP program on a Linux network interface, replays a CLDAP flood from 500 sources, and the kernel dropped all 3,000 attack packets while all 400 player packets went through.
-
-**B:** So in one line: a smart bouncer for small servers that blocks attacks by itself and explains what it did. The code is on GitHub. Thank you, happy to take questions.
-
----
-
-## Likely questions (both, short answers)
-
-**Why not just use a firewall like iptables?**
-iptables runs after the kernel has already done a lot of work on the packet. XDP runs before that, so it can drop millions of packets per second on one core. And iptables doesn't detect anything; it only enforces rules someone wrote by hand.
-
-**Why not machine learning? Did you train anything?**
-No training was needed. The detectors learn what normal traffic looks like from the first seconds of traffic and keep adapting. Statistics are transparent: we can always say exactly why it fired, which is what lets the LLM explain it. The LLM is pre-trained (gpt-4o-mini); our work is grounding it in verified facts and evaluating it.
-
-**Where is the LLM work in this project?**
-Three parts: grounded prompting (it only sees verified incident facts and the SQL event log), keeping it off the hot path so it can never block anything, and evaluating it automatically for hallucinated numbers, correct attack names, chat accuracy, latency and cost.
-
-**What if the attacker uses the same port as real players?**
-That's the SYN and UDP flood cases. Then we can't use a clean signature, so we rate-limit sources we've never seen complete a normal connection, while known players pass through.
-
-**What if an attacker poisons the baseline by ramping up slowly?**
-CUSUM is built for exactly that, and the baseline freezes the moment the methods start disagreeing with normal.
-
-**Can ShieldWall block real users by mistake?**
-Three protections: the flash-crowd check, an allowlist that is never dropped, and every rule expires after 60 seconds unless the attack is still going. There's also a dry-run mode that only logs what it would drop.
-
-**Why is the LLM there at all?**
-The person we're building for isn't a network engineer. "CLDAP 2.1 Mpps from 1,840 sources" means nothing to them. "You were attacked, I blocked it in 3 seconds, players are fine" does.
-
-**Is the demo traffic real?**
-The dashboard uses our lab traffic generator, which models players, attackers, the internet link and the server's capacity. Separately, our kernel test sends real packets through the real XDP program on Linux.
-
-**What are precision and recall here?**
-Precision: when ShieldWall says "attack", how often it really is one. Recall: of all real attack seconds, how many it caught. F1 balances the two. We test against ground truth because the lab knows exactly when each attack ran.
-
-**Is it legal to generate attack traffic?**
-Only inside an isolated lab we own, with no route to the internet. We never use stresser services or target anything we don't own.
-
----
-
-## Who knows what (so you can both answer anything)
-
-| Topic | Lead | Backup |
+| Speaker | Sections | Owns in the viva |
 |---|---|---|
-| Problem, architecture, XDP | A | B |
-| Detection maths, sketches | B | A |
-| Demo | A drives | B narrates |
-| Results, limits | B | A |
-| Roadmap | A | B |
+| **Rohit** | 1. Problem, 2. Idea | the problem, the dashboard, the demo |
+| **Saran** | 3. Design and the kernel | the XDP program, BPF maps, the real-kernel test |
+| **Sushrith** | 4. Detection, 6. Results | the detection maths, classifier, real-data replay |
+| **Tamish** | 5. Live demo with mitigation and AI, 7. Wrap-up | mitigation rules, the LLM layer and its evaluation |
+
+Swap roles if you prefer, but everyone should be able to answer the "Likely questions" at the end.
+
+Before you start: run `shieldwall dashboard`, open http://127.0.0.1:8000, wait 20 seconds so the graph has a flat "normal" line.
+
+---
+
+## 1. The problem (Rohit, ~1 min)
+
+**Rohit:** Imagine you run a small Minecraft server for your friends. Someone pays about 38 dollars an hour to a DDoS-for-hire service, and thousands of machines flood your server with junk. It can't tell real players from junk, it overloads, and everyone gets kicked.
+
+**Rohit:** Gaming is the most attacked industry, about 37% of all DDoS attacks. Big companies buy Cloudflare. A student or a small server owner can't, and has nothing automatic. That's who we built this for.
+
+## 2. Our idea in one line (Rohit, ~30 s)
+
+**Rohit:** ShieldWall is a smart bouncer in front of a small server. It **detects** an attack in about 2 seconds, **blocks** the bad traffic while real players keep playing, and **explains** what happened in plain English.
+
+**Rohit:** One honest limit: if the attack is bigger than the server's internet connection, nothing on the server can fix that. It needs the internet provider upstream. We show that escalation in our simulator.
+
+## 3. Design and the kernel (Saran, ~1.5 min)
+
+**Saran:** Two halves on two clocks. The first half lives inside the Linux kernel, using eBPF and XDP. It runs on every packet before the computer does any real work on it. Its job is tiny: count the packet, and drop it if a rule says so.
+
+**Saran:** The second half is Python, once a second. It reads the counters, decides if there's an attack and what kind, and writes a blocking rule back into the kernel. The two halves only talk through shared tables called BPF maps.
+
+**Saran:** And this runs on a real kernel. Our kernel test loads the program on a Linux network interface and sends real packets. The kernel dropped 3,000 of 3,000 attack packets and let all 400 player packets through. It also dropped 1,000 of 1,000 IP fragments, and 2,000 of 2,000 packets from a single flooding host, while other traffic passed.
+
+## 4. Detection (Sushrith, ~1.5 min)
+
+**Sushrith:** No fixed thresholds like "alert above 10,000 packets". Three alarms vote. *(open the **How it works** tab)*
+
+**Sushrith:** A spike alarm compares traffic with a running average of normal. A build-up alarm adds up small rises, so it catches slow attacks. A stranger alarm measures how spread out the senders are. We alert only if two agree, for two seconds, and the jump is big. Then a fingerprint check names the attack: traffic *from* port 389 means CLDAP amplification, SYNs without ACKs means a SYN flood, and one never-seen address sending most of the traffic means a single-host flood.
+
+**Sushrith:** No training was needed. It learns each server's normal traffic live in about 10 seconds.
+
+## 5. Live demo: blocking and the AI (Tamish, ~2 min)
+
+**Tamish:** *(back to **Live monitor**, click **CLDAP amplification**)* The banner turns red: "Under attack: CLDAP amplification flood." The three alarms light up, and the steps move to Detected, Identified and Blocked. Under "What is being blocked" it says "Dropping UDP traffic coming from port 389". Players are back to 100%.
+
+**Tamish:** The AI assistant is gpt-4o-mini. *(read the explanation)* It only sees verified facts, and it never decides what to block. *(click **Write incident report + suggest rules**)* It writes a report and suggests extra rules. ShieldWall's controller then tests every suggestion against real traffic and rejects anything unsafe or useless. Accepted rules start in dry-run, so the AI can never block anything by itself.
+
+**Tamish:** *(click **Flash crowd**)* Lots of real players join at once. The banner turns yellow, "Busy, but it's real players", and nobody is blocked.
+
+## 6. Results (Sushrith, ~1.5 min)
+
+**Sushrith:** *(open **Results**)* Three kinds of evidence, and we're careful to say which is which.
+
+**Sushrith:** First, **real attack data that we didn't create**. Three public captures of real-world attacks, and three attacks from the CIC-DDoS2019 university dataset, replayed through the engine. All 6 were detected in about 2 seconds and blocked within 3 seconds. Once blocking started, at least 94% of attack packets were dropped, with zero false alarms.
+
+**Sushrith:** Testing on real data found real problems, and we fixed them. Real amplification floods are partly IP fragments with no port numbers, so a port rule let them through. One capture mixed three attack types at once. And CIC-DDoS2019's attacks all come from a single machine, which our fingerprints missed until we added a heavy-hitter rule. That's the value of testing on data you didn't write.
+
+**Sushrith:** Second, **our simulated lab**, where we know the exact right answer for every second: 200 random trials, half attacks and half not. Precision was 100%, so it never once called normal traffic an attack: 0 of 93 non-attacks were blocked. F1 was 0.97 per second and 0.99 per attack.
+
+**Sushrith:** Third, **the AI itself**. An automatic check confirmed every number gpt-4o-mini wrote matches the facts, and a second model judged whether each claim used the number with the right meaning. 100% of its numbers matched the facts. The judge first rated 92% of claims faithful because the model over-claimed, so we fixed the prompt using what the evaluation found, and it reached 100%. Its rule suggestions went from 0 of 15 accepted to 7 of 12; the controller rejects the rest. Each explanation costs about $0.0001.
+
+## 7. Wrap-up (Tamish, ~30 s)
+
+**Tamish:** So: a kernel filter that's tested on a real Linux kernel, a detection engine tested on real attack data, and an AI that explains and suggests but never blocks, and which we evaluated. In one line: a smart bouncer for small servers that blocks attacks by itself and explains what it did. The code is on GitHub. Thank you.
+
+---
+
+## Likely questions (everyone, short answers)
+
+**Isn't testing on your own simulator circular?**
+That's why we also replayed real attack captures and CIC-DDoS2019 attacks we didn't create. The real data exposed three weaknesses (fragments, multi-vector attacks, single-host floods), which we fixed.
+
+**Is the CIC-DDoS2019 test real packets?**
+The CSV release only has flow records. We rebuilt packets from them: real addresses, ports, protocols, packet counts, sizes and timing per flow. Only the spacing of packets inside a flow is approximated.
+
+**Did you train anything? Why not machine learning?**
+No training: it learns each server's normal traffic live. Statistics are explainable, which lets the LLM say exactly why it fired, and they adapt when traffic changes. ML trained on one dataset often fails on another network.
+
+**Where is the LLM work?**
+Grounded prompting (verified facts with their meanings), keeping it off the blocking path, structured incident reports, rule suggestions validated by the controller, and an evaluation: a hallucinated-number check, an LLM-as-judge faithfulness check, chat accuracy, latency and cost.
+
+**Can the AI block real players by mistake?**
+No. It can only suggest. The controller rejects any rule that would hit more than 1% of recent player traffic, and accepted rules start in dry-run.
+
+**Is the FlowSpec / upstream part real?**
+No, it's simulated. The tool writes the rule an ISP would need, and our simulator plays the ISP. A real BGP setup would be the next step.
+
+**Why not just iptables?**
+iptables runs after the kernel has done a lot of work per packet; XDP runs before that, so it can drop millions of packets per second on one core. And iptables doesn't detect anything.
+
+**What can't it do?**
+Floods bigger than the link need the provider. IPv4 only. Website-request (HTTP) floods aren't classified. We haven't measured raw throughput (packets per second per core), which needs special network hardware.

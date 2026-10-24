@@ -39,7 +39,8 @@ def prf(tp: float, fp: float, fn: float, tn: float) -> dict:
 
 def trial(seed: int) -> dict:
     rng = random.Random(seed)
-    kind = rng.choice(ATTACKS * 2 + NEGATIVES)  # ~2/3 attacks, ~1/3 negatives
+    # balanced: half the trials are attacks, half are negatives (flash crowds or quiet traffic)
+    kind = rng.choice(ATTACKS) if rng.random() < 0.5 else rng.choice(NEGATIVES)
     start, duration = rng.randint(40, 60), rng.randint(20, 60)
     eng = Engine(sim_cfg=SimConfig(seed=seed), explain_async=False)
     pps = 0.0
@@ -73,7 +74,7 @@ def trial(seed: int) -> dict:
     }
 
 
-def main(trials: int = 60, out_path: str | None = None) -> str:
+def main(trials: int = 200, out_path: str | None = None) -> str:
     os.environ.setdefault("SHIELDWALL_LLM", "template")
     runs = [trial(seed) for seed in range(1, trials + 1)]
 
@@ -109,8 +110,11 @@ def main(trials: int = 60, out_path: str | None = None) -> str:
         else:
             per_type.append(f"| {k} | {len(rs)} | {sum(r['detected'] for r in rs)}/{len(rs)} wrongly mitigated | - |")
 
+    def p(x):  # never round 99.998% up to "100%"
+        return "100%" if x == 1 else f"{100 * x:.3f}%"
+
     def row(name, m, unit):
-        return (f"| {name} | {m['accuracy']:.2%} | {m['precision']:.2%} | {m['recall']:.2%} | {m['f1']:.3f} | "
+        return (f"| {name} | {p(m['accuracy'])} | {p(m['precision'])} | {p(m['recall'])} | {m['f1']:.3f} | "
                 f"{m['tp']:,.0f} / {m['fp']:,.0f} / {m['fn']:,.0f} / {m['tn']:,.0f} {unit} |")
 
     report = "\n".join([

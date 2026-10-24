@@ -5,6 +5,7 @@
     python -m shieldwall eval                 four-scenario evaluation -> results/results.md
     python -m shieldwall metrics              accuracy / precision / recall / F1 -> results/metrics.md
     python -m shieldwall llm-eval             LLM grounding, accuracy, latency, cost -> results/llm_eval.md
+    python -m shieldwall replay a.pcap b.pcap real attack captures through the engine -> results/replay.md
     sudo python -m shieldwall live --iface eth0   real XDP data plane (Linux)
 """
 from __future__ import annotations
@@ -33,11 +34,23 @@ def main(argv: list[str] | None = None) -> None:
     e.add_argument("--out", default=os.path.join("results", "results.md"))
 
     m = sub.add_parser("metrics", help="accuracy, precision, recall, F1 over randomized trials")
-    m.add_argument("--trials", type=int, default=60)
+    m.add_argument("--trials", type=int, default=200)
     m.add_argument("--out", default=os.path.join("results", "metrics.md"))
 
     le = sub.add_parser("llm-eval", help="evaluate the LLM explanations (needs OPENAI_API_KEY)")
     le.add_argument("--out", default=os.path.join("results", "llm_eval.md"))
+
+    rp = sub.add_parser("replay", help="replay real attack captures (.pcap/.pcapng) through the engine")
+    rp.add_argument("captures", nargs="+")
+    rp.add_argument("--target", help="victim IP (default: most common destination)")
+    rp.add_argument("--report", action="store_true", help="also write an LLM incident report per capture")
+    rp.add_argument("--out", default="results")
+
+    rc = sub.add_parser("replay-cic", help="replay CIC-DDoS2019 flow records (CSV or the dataset zip)")
+    rc.add_argument("path", help="archive.zip or a single CSV")
+    rc.add_argument("--member", action="append", help="CSV inside the zip, e.g. 01-12/Syn.csv (repeatable)")
+    rc.add_argument("--report", action="store_true")
+    rc.add_argument("--out", default="results")
 
     live = sub.add_parser("live", help="attach the real XDP program (Linux, root)")
     live.add_argument("--iface", required=True)
@@ -62,6 +75,12 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "llm-eval":
         from .llm_eval import main as llm_eval
         llm_eval(args.out)
+    elif args.cmd == "replay":
+        from .replay import main as replay
+        replay(args.captures, args.out, args.target, args.report)
+    elif args.cmd == "replay-cic":
+        from .replay import main_cic
+        main_cic(args.path, args.member or [None], args.out, args.report)
     elif args.cmd == "live":
         from .bpf_dataplane import run_live
         run_live(args.iface, args.dry_run, args.obj)

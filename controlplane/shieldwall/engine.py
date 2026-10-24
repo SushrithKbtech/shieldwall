@@ -9,9 +9,32 @@ from .detectors import Detector, DetectorConfig
 from .features import Featurizer
 from .llm import backend_label, explain_incident, template_explanation
 from .mitigation import MitigationConfig, MitigationController
-from .models import ACK, UDP
+from .models import ACK, AMP_PORTS, UDP
 from .simulator import MC_BEDROCK, AttackSpec, SimConfig, SimDataPlane, TrafficSim
 from .store import EventStore
+
+def _top_ports(samples, attr: str, n: int = 3) -> list[dict]:
+    total = sum(p.w for p in samples) or 1.0
+    by: dict[int, float] = {}
+    for p in samples:
+        if not p.frag:
+            by[getattr(p, attr)] = by.get(getattr(p, attr), 0.0) + p.w
+    return [{"port": port, "share": round(w / total, 3)} for port, w in sorted(by.items(), key=lambda kv: -kv[1])[:n]]
+
+
+def profile(f, samples=()) -> dict:
+    """What the traffic looked like at the incident's peak, in report-friendly form."""
+    return {
+        "top_source_ports": _top_ports(samples, "sport"), "top_destination_ports": _top_ports(samples, "dport"),
+        "packets_per_second": round(f.pps), "gbps": round(f.bps / 1e9, 3), "distinct_sources": f.unique_sources,
+        "share_from_never_seen_sources": round(f.new_source_share, 3), "udp_share": round(f.udp_share, 3),
+        "syn_to_ack_ratio": round(f.syn_ack_ratio, 2), "amplification_share": round(f.amp_share, 3),
+        "amplification_source_ports": [{"port": p, "service": AMP_PORTS.get(p)} for p in f.amp_ports],
+        "fragment_share": round(f.frag_share, 3),
+        "top_talkers": [{"ip": ip, "packets_per_second": round(n), "share": round(n / f.pps, 3) if f.pps else 0}
+                        for ip, n in f.top_talkers[:3]],
+    }
+
 
 REBASELINE_AFTER = 30  # windows of confirmed legitimate surge before it becomes the new normal
 
@@ -29,8 +52,8 @@ PRESETS = {
 class Engine:
     def __init__(self, sim_cfg: SimConfig | None = None, det_cfg: DetectorConfig | None = None,
                  mit_cfg: MitigationConfig | None = None, store_path: str = ":memory:",
-                 explain_async: bool = True, history: int = 180):
-        self.sim = TrafficSim(sim_cfg)
+                 explain_async: bool = True, history: int = 180, sim: TrafficSim | None = None):
+        self.sim = sim or TrafficSim(sim_cfg)
         self.mit_cfg = mit_cfg or MitigationConfig()
         self.dp = SimDataPlane(self.sim, self.mit_cfg.allowlist)
         self.featurizer = Featurizer()
@@ -46,6 +69,9 @@ class Engine:
 
         self.incident: dict | None = None
         self._benign = 0
+        self.last_incident: dict | None = None
+        self.attack_sample: list = []  # traffic at the incident's peak, for reports and rule validation
+        self.calm_sample: list = []    # recent normal traffic, so suggested rules can be tested against players
         self.last_classification: Classification | None = None
         self.last_features = None
         self.last_verdict = None
@@ -78,6 +104,11 @@ class Engine:
             self.dp.upstream = list(self.controller.upstream_rules.values())
 
             self._bookkeep(t, f, v, c, actions, res)
+            inc = self.incident
+            if v.anomalous and inc is not None and f.pps >= inc.get("profile_pps", 0):
+                inc["profile_pps"] = f.pps
+                inc["profile"] = profile(f, window.samples)
+                self.attack_sample = list(window.samples)
 
             # Real servers grow: a surge confirmed as legitimate for long enough becomes the new normal.
             self._benign = self._benign + 1 if c and c.kind == "legit_surge" else 0
@@ -90,6 +121,7 @@ class Engine:
 
             calm = rebaseline or (not v.anomalous and not any(v.votes.values()))
             if calm:
+                self.calm_sample = list(window.samples)
                 self.featurizer.learn(window)
                 self.classifier.learn(f)
                 self._learn_trusted(window)
@@ -159,6 +191,11 @@ class Engine:
             inc["peak_pps"] = max(inc["peak_pps"], f.pps)
             inc["sources"] = max(inc["sources"], f.unique_sources)
 
+        if (inc is not None and inc["malicious"] and inc["mitigate_s"] is None and inc["attack_start"] is not None
+                and sum(res.rule_hits.values()) > 0):
+            # a rule still active from an earlier incident is already dropping this attack
+            inc["mitigate_s"] = t - inc["attack_start"] + 1
+            self._explain(inc)
         if inc is not None:
             inc["legit_offered"] += res.offered_legit
             inc["legit_served"] += res.served_legit
@@ -173,7 +210,9 @@ class Engine:
                 inc["escalated"] = True
                 self._explain(inc)
 
-        if inc is not None and not v.anomalous:
+        # An incident stays open while the provider is still filtering it upstream: the flood is
+        # still happening, we just no longer see it on our side of the link.
+        if inc is not None and not v.anomalous and not self.controller.upstream_rules:
             served = 100 * inc["legit_served"] / inc["legit_offered"] if inc["legit_offered"] else 100.0
             self.store.update_incident(inc["id"], ended_t=t, peak_pps=inc["peak_pps"], sources=inc["sources"],
                                        detect_s=inc["detect_s"], mitigate_s=inc["mitigate_s"])
@@ -181,6 +220,7 @@ class Engine:
                              f"{served:.1f}% of real traffic served", inc["id"])
             inc["served_pct"] = served
             self._explain(inc)
+            self.last_incident = inc
             self.incident = None
 
     def _facts(self, inc: dict) -> dict:
@@ -191,6 +231,8 @@ class Engine:
             "mitigate_s": inc["mitigate_s"], "served_pct": None if served is None else round(served, 1),
             "escalated": inc["escalated"],
             "evidence": inc["evidence"], "resolved": served is not None,
+            "incident_over": served is not None,
+            "blocking_now": bool(self.controller.enforced_rules() or self.controller.upstream_rules),
             "players_now": ("real player traffic is getting through normally again"
                             if inc["mitigate_s"] is not None and served is None else None),
         }

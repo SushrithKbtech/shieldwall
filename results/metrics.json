@@ -1,37 +1,37 @@
 {
-  "trials": 60,
-  "attacks": 52,
-  "negatives": 8,
+  "trials": 200,
+  "attacks": 107,
+  "negatives": 93,
   "levels": {
     "window": {
-      "accuracy": 0.9796030871003307,
+      "accuracy": 0.9866792999665589,
       "precision": 1.0,
-      "recall": 0.9497964721845319,
-      "f1": 0.9742519137091161,
-      "tp": 2100,
+      "recall": 0.944366852886406,
+      "f1": 0.9713875254399617,
+      "tp": 4057,
       "fp": 0,
-      "fn": 111,
-      "tn": 3231
+      "fn": 239,
+      "tn": 13646
     },
     "packet": {
-      "accuracy": 0.9680914898368537,
-      "precision": 0.9999820092314772,
-      "recall": 0.9645177506388332,
-      "f1": 0.9819297695276058,
-      "tp": 132263589.25622813,
-      "fp": 2379.5664285428106,
-      "fn": 4865654.004069999,
-      "tn": 15430610.433571458
+      "accuracy": 0.9721491077121742,
+      "precision": 0.9999815212921873,
+      "recall": 0.9664210344666476,
+      "f1": 0.9829148903661719,
+      "tp": 271957603.5595268,
+      "fp": 5025.5179587268885,
+      "fn": 9449354.547108233,
+      "tn": 58052187.48204127
     },
     "incident": {
-      "accuracy": 0.9833333333333333,
+      "accuracy": 0.99,
       "precision": 1.0,
-      "recall": 0.9807692307692307,
-      "f1": 0.9902912621359222,
-      "tp": 51,
+      "recall": 0.9813084112149533,
+      "f1": 0.9905660377358491,
+      "tp": 105,
       "fp": 0,
-      "fn": 1,
-      "tn": 8
+      "fn": 2,
+      "tn": 93
     }
   },
   "type_accuracy": 1.0,
@@ -86,56 +86,110 @@
     2,
     2,
     2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
     3,
-    3
+    3,
+    3,
+    3,
+    4,
+    5,
+    37
   ],
-  "legit_dropped_pct": 0.015418699996195233,
+  "legit_dropped_pct": 0.008656147443258926,
   "per_type": [
     {
       "kind": "cldap",
-      "trials": 8,
-      "detected": 8,
-      "type_ok": 8,
+      "trials": 15,
+      "detected": 15,
+      "type_ok": 15,
       "attack": true
     },
     {
       "kind": "dns",
-      "trials": 9,
-      "detected": 9,
-      "type_ok": 9,
+      "trials": 20,
+      "detected": 20,
+      "type_ok": 20,
       "attack": true
     },
     {
       "kind": "ntp",
-      "trials": 10,
-      "detected": 10,
-      "type_ok": 10,
+      "trials": 13,
+      "detected": 13,
+      "type_ok": 13,
       "attack": true
     },
     {
       "kind": "syn",
-      "trials": 14,
-      "detected": 14,
-      "type_ok": 14,
+      "trials": 30,
+      "detected": 30,
+      "type_ok": 30,
       "attack": true
     },
     {
       "kind": "udp",
-      "trials": 11,
-      "detected": 10,
-      "type_ok": 10,
+      "trials": 29,
+      "detected": 27,
+      "type_ok": 27,
       "attack": true
     },
     {
       "kind": "flash_crowd",
-      "trials": 5,
+      "trials": 58,
       "detected": 0,
       "type_ok": 0,
       "attack": false
     },
     {
       "kind": "none",
-      "trials": 3,
+      "trials": 35,
       "detected": 0,
       "type_ok": 0,
       "attack": false
@@ -144,7 +198,11 @@
   "missed": [
     {
       "kind": "udp",
-      "pps": 6100.914192757771
+      "pps": 6238.302504927482
+    },
+    {
+      "kind": "udp",
+      "pps": 3173.2354772431886
     }
   ]
 }

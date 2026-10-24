@@ -1,27 +1,27 @@
 # ShieldWall detection metrics
 
-60 randomized trials: 52 attacks (CLDAP, DNS, NTP, SYN, UDP; 3k-300k pps, random start, length and ramp) and 8 negatives (flash crowds of real players, or quiet traffic). Ground truth comes from the simulator. Reproduce with `shieldwall metrics`.
+200 randomized trials: 107 attacks (CLDAP, DNS, NTP, SYN, UDP; 3k-300k pps, random start, length and ramp) and 93 negatives (flash crowds of real players, or quiet traffic). Ground truth comes from the simulator. Reproduce with `shieldwall metrics`.
 
 | Level | Accuracy | Precision | Recall | F1 | TP / FP / FN / TN |
 |---|---|---|---|---|---|
-| Per 1 s window | 97.96% | 100.00% | 94.98% | 0.974 | 2,100 / 0 / 111 / 3,231 windows |
-| Per packet dropped | 96.81% | 100.00% | 96.45% | 0.982 | 132,263,589 / 2,380 / 4,865,654 / 15,430,610 packets |
-| Per trial (incident) | 98.33% | 100.00% | 98.08% | 0.990 | 51 / 0 / 1 / 8 trials |
+| Per 1 s window | 98.668% | 100% | 94.437% | 0.971 | 4,057 / 0 / 239 / 13,646 windows |
+| Per packet dropped | 97.215% | 99.998% | 96.642% | 0.983 | 271,957,604 / 5,026 / 9,449,355 / 58,052,187 packets |
+| Per trial (incident) | 99.000% | 100% | 98.131% | 0.991 | 105 / 0 / 2 / 93 trials |
 
 - Attack-type classification accuracy (caught attacks): **100.0%**
 - Median time to detect: **2 s**
-- Real traffic wrongly dropped across all trials: **0.015%**
+- Real traffic wrongly dropped across all trials: **0.009%**
 
 | Scenario | Trials | Detection | Classification |
 |---|---|---|---|
-| cldap | 8 | 8/8 detected | 8/8 correct type |
-| dns | 9 | 9/9 detected | 9/9 correct type |
-| ntp | 10 | 10/10 detected | 10/10 correct type |
-| syn | 14 | 14/14 detected | 14/14 correct type |
-| udp | 11 | 10/11 detected | 10/11 correct type |
-| flash_crowd | 5 | 0/5 wrongly mitigated | - |
-| none | 3 | 0/3 wrongly mitigated | - |
+| cldap | 15 | 15/15 detected | 15/15 correct type |
+| dns | 20 | 20/20 detected | 20/20 correct type |
+| ntp | 13 | 13/13 detected | 13/13 correct type |
+| syn | 30 | 30/30 detected | 30/30 correct type |
+| udp | 29 | 27/29 detected | 27/29 correct type |
+| flash_crowd | 58 | 0/58 wrongly mitigated | - |
+| none | 35 | 0/35 wrongly mitigated | - |
 
 **How to read this.** Window-level recall is below 100% partly by design: the 2-window persistence guard means the first 1-2 seconds of every attack are counted as misses, and the alert stays up ~3 s after an attack ends. Those guards are what keep precision high and real players unblocked.
 
-Missed attacks: udp at 6,101 pps. The misses are the weakest attacks, close to normal traffic volume.
+Missed attacks: udp at 6,238 pps, udp at 3,173 pps. The misses are the weakest attacks, close to normal traffic volume.

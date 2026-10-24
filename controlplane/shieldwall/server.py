@@ -17,7 +17,7 @@ RESULTS = Path(__file__).resolve().parents[2] / "results"
 
 def load_results() -> dict:
     out = {}
-    for name in ("metrics", "results", "kernel_test", "llm_eval"):
+    for name in ("metrics", "results", "kernel_test", "llm_eval", "llm_eval_prompt_v1", "replay", "replay_cic"):
         f = RESULTS / f"{name}.json"
         out[name] = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else None
     return out
@@ -66,6 +66,9 @@ def make_handler(engine: Engine):
             if self.path == "/api/stop":
                 engine.stop_attacks()
                 return self._json({"ok": True})
+            if self.path == "/api/report":
+                from .llm_report import incident_report
+                return self._json(incident_report(engine))
             if self.path == "/api/chat":
                 q = (body.get("question") or "").strip()[:500]
                 return self._json({"answer": answer_question(q, engine.store) if q else ""})

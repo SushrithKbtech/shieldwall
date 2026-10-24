@@ -25,6 +25,8 @@ SYSTEM = (
     "You are ShieldWall's assistant. You explain DDoS incidents on a small game server to a "
     "non-expert owner. Be short, calm and concrete: what happened, what ShieldWall did, whether "
     "players were affected, and whether the owner needs to do anything. Use only the facts given. "
+    "State numbers exactly as given and add nothing beyond them: for example, do not say 'no impact' or "
+    "'no disruption' unless served_pct is 100, and do not guess at things the facts don't mention. "
     "You never block traffic yourself; the statistics engine does that."
 )
 
@@ -138,9 +140,21 @@ def template_explanation(facts: dict) -> str:
     return s
 
 
+FIELD_GUIDE = (
+    "Field meanings: peak_pps = highest packets per second seen; sources = distinct sending addresses; "
+    "detect_s = seconds from the start of the traffic change until ShieldWall confirmed it; "
+    "mitigate_s = seconds from the start until blocking took effect (null = nothing blocked yet); "
+    "served_pct = percent of real player traffic that got through during the incident (null until the incident "
+    "is over); incident_over = false means the attack is still happening right now; blocking_now = true means "
+    "ShieldWall is actively dropping the attack traffic at this moment; "
+    "escalated = the flood exceeded the internet link and the provider was asked to filter it; "
+    "malicious = false means real players, not an attack."
+)
+
+
 def incident_prompt(facts: dict) -> str:
     return ("Explain this incident to the server owner in 2-3 sentences.\n"
-            f"Facts (JSON): {json.dumps(facts, default=str)}")
+            f"{FIELD_GUIDE}\nFacts (JSON): {json.dumps(facts, default=str)}")
 
 
 def explain_incident(facts: dict) -> str:

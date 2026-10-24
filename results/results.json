@@ -19,12 +19,12 @@
     "malicious": true,
     "label": "TCP SYN flood",
     "served_without": 40.09628788886246,
-    "served_with": 98.69298080599961,
+    "served_with": 98.6929397408353,
     "detect_s": 2,
     "mitigate_s": 3,
     "escalated": false,
     "rules_added": 1,
-    "legit_dropped_pct": 0.06190539513486965,
+    "legit_dropped_pct": 0.06194646029916825,
     "explanation": "Your server was attacked from about 2,611 sources using a TCP SYN flood at up to 160,877 packets/s. ShieldWall blocked it 3 seconds after it started. 99% of real player traffic got through during the attack. No action needed from you."
   },
   {
@@ -67,6 +67,6 @@
     "escalated": true,
     "rules_added": 1,
     "legit_dropped_pct": 0.0,
-    "explanation": "Your server was attacked from about 2,170 sources using a CLDAP amplification flood at up to 936,014 packets/s. ShieldWall blocked it 3 seconds after it started. 68% of real player traffic got through during the attack. The flood was bigger than your internet link, so ShieldWall asked the upstream network to filter it. No action needed from you."
+    "explanation": "Your server was attacked from about 2,170 sources using a CLDAP amplification flood at up to 936,014 packets/s. ShieldWall blocked it 3 seconds after it started. Real players are getting through normally again. The flood was bigger than your internet link, so ShieldWall asked the upstream network to filter it. No action needed from you."
   }
 ]

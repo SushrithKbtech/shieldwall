@@ -148,7 +148,7 @@ class TrafficSim:
         legit = cfg.legit_pps * (1 + r.gauss(0, cfg.noise))
         samples = self._class(legit * 0.95, lambda: self._legit_packet(self.regulars, 0.01))
         samples += self._class(legit * 0.05, lambda: self._legit_packet(self.newcomers, 0.05))
-        for a in self.active(t):
+        for a in TrafficSim.active(self, t):  # generated attacks only (subclasses may add others)
             rate = self._rate(a, t) * (1 + r.gauss(0, cfg.noise / 2))
             if a.kind == "flash_crowd":  # a real rush of new players: legit, handshakes complete
                 samples += self._class(rate, lambda: self._legit_packet(self.newcomers, 0.05), cfg.attack_samples)
@@ -196,7 +196,7 @@ class SimDataPlane:
             kf = keep_frac[rule.id]
             hits[rule.id] = hits.get(rule.id, 0.0) + p.w * (1 - kf)
             if kf > 0:
-                q = Packet(p.src, p.sport, p.dport, p.proto, p.flags, p.size, p.w * kf, p.legit)
+                q = Packet(p.src, p.sport, p.dport, p.proto, p.flags, p.size, p.w * kf, p.legit, p.frag)
                 out.append(q)
         return out
 
@@ -213,7 +213,7 @@ class SimDataPlane:
         # The link: anything beyond its capacity is lost before reaching us.
         bps = sum(p.w * p.size * 8 for p in after_up)
         link_frac = min(1.0, cfg.link_bps / bps) if bps else 1.0
-        arriving = [Packet(p.src, p.sport, p.dport, p.proto, p.flags, p.size, p.w * link_frac, p.legit)
+        arriving = [Packet(p.src, p.sport, p.dport, p.proto, p.flags, p.size, p.w * link_frac, p.legit, p.frag)
                     for p in after_up]
         res.legit_after_link = sum(p.w for p in arriving if p.legit)
 

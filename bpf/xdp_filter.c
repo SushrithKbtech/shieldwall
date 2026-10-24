@@ -28,6 +28,7 @@
 #define ACTION_RATE_LIMIT 2
 #define RULE_SYN_ONLY      0x01
 #define RULE_UNTRUSTED     0x02
+#define RULE_FRAG          0x04   /* non-first IP fragments (no ports) */
 
 /* ---- counters: kernel writes, userspace reads ----------------------------- */
 
@@ -40,6 +41,7 @@ struct counters {
 	__u64 tcp;
 	__u64 dropped;
 	__u64 allowlisted;
+	__u64 frag;
 };
 
 struct {
@@ -113,6 +115,15 @@ struct {
 	__type(value, __u8);
 } allowlist SEC(".maps");
 
+/* Heavy hitters: single never-seen sources flooding the server; populated by userspace. */
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__uint(max_entries, 1024);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__type(key, struct lpm_v4);
+	__type(value, __u64);           /* drop counter */
+} blocklist SEC(".maps");
+
 /* Sources that completed handshakes in calm times; populated by userspace. */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
@@ -149,10 +160,21 @@ static __always_inline int token_bucket_allow(struct rule_val *r, __u64 now)
 }
 
 static __always_inline struct rule_val *
-lookup_rule(__u8 proto, __u16 sport, __u16 dport, int is_syn, int untrusted)
+lookup_rule(__u8 proto, __u16 sport, __u16 dport, int is_syn, int untrusted, int is_frag)
 {
 	struct rule_key k = { .proto = proto };
 	struct rule_val *r;
+
+	if (is_frag) {                       /* fragments carry no ports: only fragment rules apply */
+		if (untrusted) {
+			k.flags = RULE_FRAG | RULE_UNTRUSTED;
+			r = bpf_map_lookup_elem(&rules, &k);
+			if (r)
+				return r;
+		}
+		k.flags = RULE_FRAG;
+		return bpf_map_lookup_elem(&rules, &k);
+	}
 
 	/* Most specific first: signature on source port (amplification). */
 	k.sport = sport;
@@ -208,6 +230,7 @@ int shieldwall_xdp(struct xdp_md *ctx)
 	if (ip->ihl < 5)
 		return XDP_PASS;
 	void *l4 = (void *)ip + ip->ihl * 4;
+	int is_frag = (ip->frag_off & bpf_htons(0x1FFF)) != 0;   /* non-first fragment: no L4 header */
 
 	__u16 sport = 0, dport = 0;
 	int is_syn = 0, is_ack = 0;
@@ -218,7 +241,13 @@ int shieldwall_xdp(struct xdp_md *ctx)
 	c->pkts++;
 	c->bytes += len;
 
-	if (ip->protocol == IPPROTO_TCP) {
+	if (is_frag && (ip->protocol == IPPROTO_TCP || ip->protocol == IPPROTO_UDP)) {
+		c->frag++;
+		if (ip->protocol == IPPROTO_UDP)
+			c->udp++;
+		else
+			c->tcp++;
+	} else if (ip->protocol == IPPROTO_TCP) {
 		struct tcphdr *tcp = l4;
 		if ((void *)(tcp + 1) > data_end)
 			return XDP_PASS;
@@ -271,8 +300,19 @@ int shieldwall_xdp(struct xdp_md *ctx)
 		return XDP_PASS;
 	}
 
+	/* heavy-hitter blocklist (any protocol) */
+	__u64 *bl = bpf_map_lookup_elem(&blocklist, &lk);
+	if (bl) {
+		__sync_fetch_and_add(bl, 1);
+		__u32 *enf = bpf_map_lookup_elem(&config, &zero);
+		if (!enf || *enf) {
+			c->dropped++;
+			return XDP_DROP;
+		}
+	}
+
 	int untrusted = bpf_map_lookup_elem(&trusted, &saddr) == 0;
-	struct rule_val *r = lookup_rule(ip->protocol, sport, dport, is_syn, untrusted);
+	struct rule_val *r = lookup_rule(ip->protocol, sport, dport, is_syn, untrusted, is_frag);
 	if (!r)
 		return XDP_PASS;
 

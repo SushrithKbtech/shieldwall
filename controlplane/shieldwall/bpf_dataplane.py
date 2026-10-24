@@ -21,7 +21,7 @@ from .mitigation import MitigationConfig, MitigationController
 from .models import AMP_PORTS, Features, Rule, ip_str
 from .sketches import BloomFilter, CountMinSketch, HyperLogLog
 
-RULE_SYN_ONLY, RULE_UNTRUSTED = 0x01, 0x02
+RULE_SYN_ONLY, RULE_UNTRUSTED, RULE_FRAG = 0x01, 0x02, 0x04
 ACTIONS = {"drop": 1, "rate_limit": 2}
 
 
@@ -54,6 +54,7 @@ class BPFDataPlane:
         self.prev_src: dict[int, dict] = {}
         self.prev_sport: dict[int, int] = {}
         self.written: dict[bytes, int] = {}
+        self.blocked: set[tuple[int, int]] = set()
         self.t = 0
 
     def attach(self, enforce: bool = True) -> None:
@@ -78,10 +79,22 @@ class BPFDataPlane:
     # -- rules ------------------------------------------------------------------
     @staticmethod
     def _rule_key(r: Rule) -> bytes:
-        flags = (RULE_SYN_ONLY if r.syn_only else 0) | (RULE_UNTRUSTED if r.untrusted_only else 0)
+        flags = (RULE_SYN_ONLY if r.syn_only else 0) | (RULE_UNTRUSTED if r.untrusted_only else 0) |             (RULE_FRAG if r.frag_only else 0)
         return struct.pack("<BBHHH", r.proto, flags, r.sport, r.dport, 0)
 
+    def sync_blocklist(self, rules: list[Rule]) -> None:
+        """Source rules (heavy hitters) live in the LPM blocklist map, not the port rules map."""
+        want = {(bin(r.src_mask).count("1"), r.src) for r in rules if r.src_mask}
+        for plen, addr in want - self.blocked:
+            key = struct.pack("<I", plen) + struct.pack(">I", addr)
+            _bpftool("map", "update", "name", "blocklist", "key", *_hex(key), "value", *_hex(struct.pack("<Q", 0)))
+        for plen, addr in self.blocked - want:
+            _bpftool("map", "delete", "name", "blocklist", "key", *_hex(struct.pack("<I", plen) + struct.pack(">I", addr)))
+        self.blocked = want
+
     def sync_rules(self, rules: list[Rule], ttl_s: int) -> None:
+        self.sync_blocklist(rules)
+        rules = [r for r in rules if not r.src_mask]
         want = {self._rule_key(r): r for r in rules}
         now = time.monotonic_ns()  # bpf_ktime_get_ns() is CLOCK_MONOTONIC
         for key, r in want.items():
@@ -103,35 +116,44 @@ class BPFDataPlane:
         self.prev = stats
 
         # the maps hold running totals; this window is the difference from the last read
-        sports = {}
+        # Only keys still in the (LRU) maps are kept, so memory stays bounded under spoofed floods.
+        sports, prev_sport = {}, {}
         for e in _bpftool("map", "dump", "name", "udp_sport_count") or []:
             port = struct.unpack("<H", bytes(int(x, 16) for x in e["key"]))[0]
             total = _sum_percpu(e)["value"]
-            if total > self.prev_sport.get(port, 0):
-                sports[port] = total - self.prev_sport.get(port, 0)
-            self.prev_sport[port] = total
-        srcs = {}
+            d = total - self.prev_sport.get(port, 0)
+            if d < 0:  # evicted and re-created since the last read
+                d = total
+            if d > 0:
+                sports[port] = d
+            prev_sport[port] = total
+        self.prev_sport = prev_sport
+        srcs, prev_src = {}, {}
         for e in _bpftool("map", "dump", "name", "src_count") or []:
             addr = struct.unpack("<I", bytes(int(x, 16) for x in e["key"]))[0]
             cur = {k: int(v) for k, v in e.get("formatted", e)["value"].items()}
             old = self.prev_src.get(addr, {})
             d = {k: v - old.get(k, 0) for k, v in cur.items()}
+            if d["pkts"] < 0:  # evicted and re-created since the last read
+                d = cur
             if d["pkts"] > 0:
                 srcs[addr] = d
-            self.prev_src[addr] = cur
+            prev_src[addr] = cur
+        self.prev_src = prev_src
 
         pps = float(delta.get("pkts", 0))
         hll, cms = HyperLogLog(), CountMinSketch(top_k=5)
         new_w = 0.0
-        handshake_srcs = []
+        trust_candidates = []
         for addr, st in srcs.items():
             host = struct.unpack(">I", struct.pack("<I", addr))[0]
             hll.add(host)
             cms.add(host, st["pkts"])
             if host not in seen:
                 new_w += st["pkts"]
-            if st["ack"]:
-                handshake_srcs.append(addr)
+            # completed a TCP handshake, or a steady sender (covers UDP players such as Bedrock)
+            if st["ack"] or st["pkts"] >= 3:
+                trust_candidates.append(addr)
         amp = {p: n for p, n in sports.items() if p in AMP_PORTS}
         amp_port = max(amp, key=amp.get) if amp else None
         f = Features(
@@ -144,9 +166,15 @@ class BPFDataPlane:
             src_entropy=entropy(st["pkts"] for st in srcs.values()),
             dport_entropy=math.nan,
             top_talkers=[(ip_str(k), v) for k, v in cms.top(5)],
+            frag_share=delta.get("frag", 0) / pps if pps else 0.0,
+            amp_ports=sorted((p for p, n in amp.items() if pps and n / pps >= 0.05), key=lambda p: -amp[p]),
         )
+        heavy = cms.top(1)
+        if heavy and pps:
+            f.top_src, f.top_share = heavy[0][0], min(heavy[0][1], pps) / pps
+            f.top_src_new = f.top_src not in seen
         self.t += 1
-        return f, handshake_srcs
+        return f, trust_candidates
 
 
 def run_live(iface: str, dry_run: bool = False, obj: str = "bpf/xdp_filter.o") -> None:
@@ -160,7 +188,7 @@ def run_live(iface: str, dry_run: bool = False, obj: str = "bpf/xdp_filter.o") -
     try:
         while True:
             time.sleep(1)
-            f, handshakes = dp.read_features(seen)
+            f, candidates = dp.read_features(seen)
             v = det.update(f)
             c = cls.classify(f) if v.anomalous else None
             for a in ctl.step(f.t, v.anomalous, c, f, v.baseline_pps, {}, {}):
@@ -168,7 +196,7 @@ def run_live(iface: str, dry_run: bool = False, obj: str = "bpf/xdp_filter.o") -
             dp.sync_rules(ctl.enforced_rules(), cfg.rule_ttl)
             if not v.anomalous and not any(v.votes.values()):
                 cls.learn(f)
-                for addr in handshakes:
+                for addr in candidates:  # only learned in calm windows, never during an attack
                     dp.trust(addr)
                     seen.add(struct.unpack(">I", struct.pack("<I", addr))[0])
             print(f"t={f.t} pps={f.pps:,.0f} z={v.zscore:.1f} cusum={v.cusum:.1f} "

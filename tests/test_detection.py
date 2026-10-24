@@ -99,3 +99,14 @@ def test_sustained_legit_surge_becomes_new_normal_and_attacks_still_caught():
     assert pts[110]["baseline"] > 6_000
     assert any(p["malicious_alert"] for p in pts if 120 <= p["t"] < 125)  # attack on top still caught
     assert min(p["served_pct"] for p in pts if 124 <= p["t"] < 140) > 95
+
+
+def test_repeat_attack_blocked_by_existing_rule_counts_as_mitigated():
+    eng = Engine(explain_async=False)
+    eng.launch("cldap", duration=15, start=30)
+    eng.launch("cldap", duration=15, start=60)  # starts while the first rule is still active
+    for _ in range(80):
+        eng.step()
+    second = eng.store.incidents(5)[0]
+    assert second["mitigate_s"] is not None and second["mitigate_s"] <= 3
+    assert "blocked it" in second["explanation"]

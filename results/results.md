@@ -16,7 +16,7 @@ Each scenario: 40s of normal play to learn the baseline, a 60s event, 40s of rec
 - **S2a**: Your server was attacked from about 2,611 sources using a TCP SYN flood at up to 160,877 packets/s. ShieldWall blocked it 3 seconds after it started. 99% of real player traffic got through during the attack. No action needed from you.
 - **S2b**: Your server was attacked from about 2,435 sources using a UDP flood at up to 129,293 packets/s. ShieldWall blocked it 3 seconds after it started. 99% of real player traffic got through during the attack. No action needed from you.
 - **S3**: Traffic jumped to 7,246 packets/s, but it looks like real players (handshakes complete, normal protocol mix). ShieldWall is watching and did not block anyone.
-- **S4**: Your server was attacked from about 2,170 sources using a CLDAP amplification flood at up to 936,014 packets/s. ShieldWall blocked it 3 seconds after it started. 68% of real player traffic got through during the attack. The flood was bigger than your internet link, so ShieldWall asked the upstream network to filter it. No action needed from you.
+- **S4**: Your server was attacked from about 2,170 sources using a CLDAP amplification flood at up to 936,014 packets/s. ShieldWall blocked it 3 seconds after it started. Real players are getting through normally again. The flood was bigger than your internet link, so ShieldWall asked the upstream network to filter it. No action needed from you.
 
 ## Honest limits
 
