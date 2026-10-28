@@ -6,6 +6,8 @@
     python -m shieldwall metrics              accuracy / precision / recall / F1 -> results/metrics.md
     python -m shieldwall llm-eval             LLM grounding, accuracy, latency, cost -> results/llm_eval.md
     python -m shieldwall replay a.pcap b.pcap real attack captures through the engine -> results/replay.md
+    python -m shieldwall ml-train             train the Tier 2 ML classifier -> results/ml_model.joblib, ml_eval.md
+    python -m shieldwall analyst-eval         Tier 3 analyst: LLM vs heuristic proposals -> results/analyst_eval.md
     sudo python -m shieldwall live --iface eth0   real XDP data plane (Linux)
 """
 from __future__ import annotations
@@ -55,6 +57,23 @@ def main(argv: list[str] | None = None) -> None:
     rc.add_argument("--out", default="results")
     rc.add_argument("--name", default="replay_cic", help="output file stem")
 
+    mt = sub.add_parser("ml-train", help="train and evaluate the Tier 2 ML classifier (needs scikit-learn)")
+    mt.add_argument("--out", default="results")
+    mt.add_argument("--captures", action="append", help="folder of development captures the model may learn from")
+    mt.add_argument("--heldout", action="append", help="folder of held-out captures, only used for scoring")
+    mt.add_argument("--cic", help="CIC-DDoS2019 archive.zip")
+    mt.add_argument("--cic-dev", action="append", help="CIC CSV the model may learn from, e.g. 01-12/Syn.csv")
+    mt.add_argument("--cic-heldout", action="append", help="CIC CSV only used for scoring")
+    mt.add_argument("--cache", help="pickle file that keeps the generated windows between runs")
+    mt.add_argument("--learn-from-captures", action="store_true",
+                    help="ship the model that also learned from the development captures")
+
+    ae = sub.add_parser("analyst-eval", help="score the Tier 3 analyst's rule proposals (LLM needs OPENAI_API_KEY)")
+    ae.add_argument("--out", default="results")
+    ae.add_argument("--captures", action="append", help="folder of real attack captures")
+    ae.add_argument("--cic", help="CIC-DDoS2019 archive.zip")
+    ae.add_argument("--cic-member", action="append", help="CIC CSV inside the zip, e.g. 01-12/Syn.csv")
+
     live = sub.add_parser("live", help="attach the real XDP program (Linux, root)")
     live.add_argument("--iface", required=True)
     live.add_argument("--obj", default=os.path.join("bpf", "xdp_filter.o"))
@@ -84,6 +103,13 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "replay-cic":
         from .replay import main_cic
         main_cic(args.path, args.member or [None], args.out, args.report, args.name)
+    elif args.cmd == "ml-train":
+        from .ml_train import main as ml_train
+        ml_train(args.out, args.captures, args.heldout, args.cic, args.cic_dev, args.cic_heldout, args.cache,
+                 args.learn_from_captures)
+    elif args.cmd == "analyst-eval":
+        from .analyst_eval import main as analyst_eval
+        analyst_eval(args.out, args.captures, args.cic, args.cic_member)
     elif args.cmd == "live":
         from .bpf_dataplane import run_live
         run_live(args.iface, args.dry_run, args.obj)

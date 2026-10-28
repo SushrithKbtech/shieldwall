@@ -82,11 +82,17 @@ class MitigationController:
             return [Rule(0, "rate_limit", UDP, untrusted_only=True,
                          rate_pps=max(500.0, baseline_pps * 0.3), expires_at=exp, mode=mode,
                          reason=f"{c.label}: token-bucket on unknown UDP sources")]
+        if c.kind == "synack_reflection":
+            # SYN-ACKs only answer connections this server opened itself, a handful per second. Players send SYN
+            # and ACK, never SYN-ACK, so the rule cannot touch them; the trickle keeps our own outbound connects alive.
+            return [Rule(0, "rate_limit", TCP, synack_only=True, untrusted_only=True, rate_pps=100.0,
+                         expires_at=exp, mode=mode, reason=f"{c.label}: SYN-ACKs nobody here asked for")]
         return []
 
     def _same(self, a: Rule, b: Rule) -> bool:
-        return (a.action, a.proto, a.sport, a.dport, a.syn_only, a.untrusted_only, a.frag_only, a.src, a.src_mask) == (
-            b.action, b.proto, b.sport, b.dport, b.syn_only, b.untrusted_only, b.frag_only, b.src, b.src_mask)
+        return (a.action, a.proto, a.sport, a.dport, a.syn_only, a.synack_only, a.untrusted_only, a.frag_only, a.src,
+                a.src_mask) == (b.action, b.proto, b.sport, b.dport, b.syn_only, b.synack_only, b.untrusted_only,
+                                b.frag_only, b.src, b.src_mask)
 
     # -- main step ---------------------------------------------------------
     def step(self, t: int, anomalous: bool, c: Classification | None, f: Features,
@@ -168,14 +174,17 @@ def suggestion_to_rule(s: dict) -> Rule:
     action = s.get("action")
     if proto is None or action not in ("drop", "rate_limit"):
         raise ValueError("unknown protocol or action")
-    src = ip_int(s["source_ip"]) if s.get("source_ip") else 0
-    ports = [s.get("src_port") or 0, s.get("dst_port") or 0]
+    # models often write "null" or "any" as text instead of a JSON null; both mean "not set"
+    unset = lambda v: v is None or (isinstance(v, str) and v.strip().lower() in ("", "null", "none", "any", "*"))
+    src = 0 if unset(s.get("source_ip")) else ip_int(s["source_ip"])
+    ports = [0 if unset(s.get(k)) else int(s[k]) if str(s[k]).isdigit() else s[k] for k in ("src_port", "dst_port")]
     if any(not isinstance(p, int) or not 0 <= p <= 65535 for p in ports):
         raise ValueError("ports must be 0-65535")
     rate = float(s.get("rate_pps") or 0)
     if action == "rate_limit" and not 1 <= rate <= 1_000_000:
         raise ValueError("a rate limit needs rate_pps between 1 and 1,000,000")
     return Rule(0, action, proto, sport=ports[0], dport=ports[1], syn_only=bool(s.get("syn_only")),
+                synack_only=bool(s.get("synack_only")),
                 src=src, src_mask=0xFFFFFFFF if src else 0,
                 untrusted_only=bool(s.get("unknown_sources_only")), frag_only=bool(s.get("fragments_only")),
                 rate_pps=rate, reason=str(s.get("reason", ""))[:200])
@@ -194,7 +203,8 @@ def validate_suggestion(s: dict, controller: "MitigationController", attack_samp
     except (ValueError, TypeError) as e:
         return {"rule": str(s), "accepted": False, "verdict": f"rejected: {e}"}
     out = {"rule": rule.describe(), "accepted": False, "llm_reason": rule.reason}
-    if not (rule.sport or rule.dport or rule.syn_only or rule.frag_only or rule.untrusted_only or rule.src_mask):
+    if not (rule.sport or rule.dport or rule.syn_only or rule.synack_only or rule.frag_only or rule.untrusted_only
+            or rule.src_mask):
         out["verdict"] = "rejected: too broad (would match every packet of that protocol)"
         return out
     if rule.action == "drop" and rule.dport in controller.cfg.service_ports:

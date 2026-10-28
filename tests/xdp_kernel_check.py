@@ -8,7 +8,7 @@ sys.path.insert(0, "controlplane")
 
 from shieldwall.bpf_dataplane import BPFDataPlane, _bpftool, _sum_percpu  # noqa: E402
 from shieldwall.classifier import Classifier  # noqa: E402
-from shieldwall.models import UDP, Rule, ip_int  # noqa: E402
+from shieldwall.models import TCP, UDP, Rule, ip_int  # noqa: E402
 from shieldwall.sketches import BloomFilter  # noqa: E402
 
 MAC = open("/sys/class/net/sw0/address").read().strip()
@@ -123,6 +123,25 @@ def main() -> None:
     print(f"expiry        : {expired_dropped} of 200 packets dropped after the entry expired (should be 0)")
     assert expired_dropped == 0
     result["dropped_after_expiry"] = expired_dropped
+
+    # TCP reflection: SYN-ACKs nobody here asked for are matched by their flags; players never send one
+    dp.sync_rules([Rule(6, "rate_limit", TCP, synack_only=True, untrusted_only=True, rate_pps=100)], ttl_s=60)
+    dp.read_features(seen)
+    before = stats()
+    send_raw(f"pk = [Ether(dst='{MAC}') / IP(src='45.60.%d.%d' % (i // 250, i % 250 + 1), dst='192.168.77.1')"
+             " / TCP(sport=(443, 80, 22)[i % 3], dport=1024 + i % 60000, flags='SA') for i in range(3000)]")
+    mid = stats()
+    f, _ = dp.read_features(seen)
+    send_raw(f"pk = [Ether(dst='{MAC}') / IP(src='49.10.0.%d' % (i % 20 + 1), dst='192.168.77.1')"
+             " / TCP(sport=50000 + i, dport=25565, flags='SA'[i % 2]) for i in range(400)]")
+    after = stats()
+    synack_dropped = mid["dropped"] - before["dropped"]
+    players_dropped = after["dropped"] - mid["dropped"]
+    print(f"syn-ack flood : kernel counted {f.synack_pps:.0f} SYN-ACKs, dropped {synack_dropped} of 3000; "
+          f"dropped {players_dropped} of 400 player SYN/ACK packets")
+    assert f.synack_pps >= 3000 and synack_dropped >= 2000 and players_dropped == 0
+    result.update(synack_sent=3000, synack_dropped=synack_dropped, synack_players_sent=400,
+                  synack_players_dropped=players_dropped)
 
     dp.set_enforce(False)  # dry-run: count hits, drop nothing
     before = stats()

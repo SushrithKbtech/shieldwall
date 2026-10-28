@@ -10,17 +10,19 @@ from .detectors import Detector, DetectorConfig
 from .features import Featurizer
 from .llm import backend_label, explain_incident, template_explanation
 from .mitigation import MitigationConfig, MitigationController
-from .models import ACK, AMP_PORTS, UDP
+from .models import ACK, AMP_PORTS, TCP, UDP
 from .simulator import MC_BEDROCK, AttackSpec, SimConfig, SimDataPlane, TrafficSim
 from .store import EventStore
 
 def _top_ports(samples, attr: str, n: int = 3) -> list[dict]:
     total = sum(p.w for p in samples) or 1.0
-    by: dict[int, float] = {}
+    by: dict[tuple[int, int], float] = {}
     for p in samples:
         if not p.frag:
-            by[getattr(p, attr)] = by.get(getattr(p, attr), 0.0) + p.w
-    return [{"port": port, "share": round(w / total, 3)} for port, w in sorted(by.items(), key=lambda kv: -kv[1])[:n]]
+            key = (getattr(p, attr), p.proto)
+            by[key] = by.get(key, 0.0) + p.w
+    return [{"port": port, "protocol": {TCP: "tcp", UDP: "udp"}.get(proto, str(proto)), "share": round(w / total, 3)}
+            for (port, proto), w in sorted(by.items(), key=lambda kv: -kv[1])[:n]]
 
 
 def profile(f, samples=()) -> dict:
@@ -29,7 +31,9 @@ def profile(f, samples=()) -> dict:
         "top_source_ports": _top_ports(samples, "sport"), "top_destination_ports": _top_ports(samples, "dport"),
         "packets_per_second": round(f.pps), "gbps": round(f.bps / 1e9, 3), "distinct_sources": f.unique_sources,
         "share_from_never_seen_sources": round(f.new_source_share, 3), "udp_share": round(f.udp_share, 3),
+        "tcp_share": round(sum(p.w for p in samples if p.proto == TCP) / f.pps, 3) if f.pps and samples else None,
         "syn_to_ack_ratio": round(f.syn_ack_ratio, 2), "amplification_share": round(f.amp_share, 3),
+        "synack_share": round(f.synack_pps / f.pps, 3) if f.pps else 0.0,
         "amplification_source_ports": [{"port": p, "service": AMP_PORTS.get(p)} for p in f.amp_ports],
         "fragment_share": round(f.frag_share, 3),
         "top_talkers": [{"ip": ip, "packets_per_second": round(n), "share": round(n / f.pps, 3) if f.pps else 0}
@@ -46,6 +50,7 @@ PRESETS = {
     "ntp": dict(kind="ntp", pps=120_000, ramp=2),
     "syn": dict(kind="syn", pps=150_000, ramp=2),
     "udp": dict(kind="udp", pps=120_000, ramp=3),
+    "synack": dict(kind="synack", pps=100_000, ramp=2),  # no fingerprint for it: named by the ML tier
     "flash_crowd": dict(kind="flash_crowd", pps=5_000, ramp=8),
     "mega_cldap": dict(kind="cldap", pps=2_200_000, ramp=2),  # ~25 Gbps into a 10 Gbps link
 }
@@ -190,7 +195,7 @@ class Engine:
                 "peak_pps": f.pps, "sources": f.unique_sources, "evidence": c.evidence,
                 "attack_start": min(starts) if starts else None, "detect_s": None,
                 "mitigate_s": None, "escalated": False, "legit_offered": 0.0, "legit_served": 0.0,
-                "explanation": "",
+                "explanation": "", "tier": c.source,
             }
             if inc["attack_start"] is not None:
                 inc["detect_s"] = t - inc["attack_start"] + 1
@@ -199,7 +204,7 @@ class Engine:
             self._explain(inc)
         elif v.anomalous and inc is not None:
             if c.malicious and not inc["malicious"] or (c.malicious and c.kind != inc["kind"]):
-                inc.update(kind=c.kind, label=c.label, malicious=True, evidence=c.evidence)
+                inc.update(kind=c.kind, label=c.label, malicious=True, evidence=c.evidence, tier=c.source)
                 self.store.update_incident(inc["id"], kind=c.kind, label=c.label, malicious=1)
                 self.store.event(t, "classified", f"re-classified as {c.label}", inc["id"])
             inc["peak_pps"] = max(inc["peak_pps"], f.pps)
@@ -297,6 +302,7 @@ class Engine:
                 "votes": v.votes if v else {},
                 "classification": c.label if c else None,
                 "kind": c.kind if c else None,
+                "tier": c.source if c else None,  # fingerprint | ml | residual (sent to the Tier 3 analyst)
                 "malicious": bool(c and c.malicious),
                 "incident": None if inc is None else {
                     "id": inc["id"], "label": inc["label"], "malicious": inc["malicious"],

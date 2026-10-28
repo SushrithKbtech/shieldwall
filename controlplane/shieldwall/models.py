@@ -64,6 +64,7 @@ class Features:
     amp_ports: list[int] = field(default_factory=list)   # every amplification port with >=5% of traffic
     amp_ports_seen: list[int] = field(default_factory=list)  # every amplification port with >=0.5% (all get blocked)
     top_src_to_service: float = 0.0                      # share of the top sender's traffic aimed at the game ports
+    synack_pps: float = 0.0                              # SYN-ACK replies: this server never asked for them in bulk
 
 
 @dataclass
@@ -88,6 +89,7 @@ class Rule:
     syn_only: bool = False
     untrusted_only: bool = False
     frag_only: bool = False  # matches non-first IP fragments (which carry no ports)
+    synack_only: bool = False  # matches SYN-ACK replies (TCP reflection)
     src: int = 0             # source address/prefix (0 = any); installed in the XDP blocklist map
     src_mask: int = 0
     rate_pps: float = 0.0
@@ -109,6 +111,8 @@ class Rule:
             return False
         if self.syn_only and not (p.flags & SYN and not p.flags & ACK):
             return False
+        if self.synack_only and not (p.flags & SYN and p.flags & ACK):
+            return False
         if self.untrusted_only and p.src in trusted:
             return False
         return True
@@ -125,6 +129,8 @@ class Rule:
             parts.append(f"dst port {self.dport}")
         if self.syn_only:
             parts.append("SYN only")
+        if self.synack_only:
+            parts.append("SYN-ACK only")
         if self.frag_only:
             parts.append("fragments")
         if self.untrusted_only:

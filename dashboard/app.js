@@ -69,7 +69,14 @@ function plainRule(rule) {
   if (m) return `Slowing new connections from unknown senders to ${m[1]} per second (known players pass)`;
   m = rule.match(/^RATE-LIMIT UDP from unknown sources to ([\d,]+) pps/);
   if (m) return `Slowing UDP from unknown senders to ${m[1]} per second (known players pass)`;
+  m = rule.match(/^RATE-LIMIT TCP SYN-ACK only from unknown sources to ([\d,]+) pps/);
+  if (m) return `Slowing SYN-ACK replies from unknown senders to ${m[1]} per second (players never send these)`;
   return rule;
+}
+
+const TIER = { fingerprint: "fingerprint check", ml: "trained ML model", residual: "nobody yet: sent to the AI analyst" };
+function tierNote(s) {
+  return s.tier ? TIER[s.tier] || s.tier : "-";
 }
 
 const EVENT = {
@@ -92,6 +99,10 @@ const EVENT = {
   }],
   rebaselined: ["≈", "info", (d) => d.replace("sustained legitimate surge:", "Busy for a while with real players:")],
   observe: ["i", "info", (d) => d],
+  analyst: ["AI", "info", (d) => {
+    const m = d.match(/^(accepted \(dry-run\)|rejected): (.+?) \((.+)\)$/);
+    return m ? `AI analyst proposed: ${plainRule(m[2])}. Controller: ${m[1] === "rejected" ? m[3] : "accepted, logging only (dry-run)"}` : d;
+  }],
 };
 
 function list(el, items, render, empty) {
@@ -151,9 +162,11 @@ function render(s) {
     if (blocking.length) {
       banner("attack", "!", `Under attack: ${name}`,
         `ShieldWall is blocking it. ${served.toFixed(0)}% of real player traffic is getting through` +
-        (inc && inc.mitigate_s ? `, blocked ${inc.mitigate_s} s after it started.` : "."));
-      setSteps(["watch", "detect", "identify", "block"], "explain", { explain: s.explanation ? "summary ready" : "writing summary" });
-      if (s.explanation) setSteps(["watch", "detect", "identify", "block", "explain"], null);
+        (inc && inc.mitigate_s ? `, blocked ${inc.mitigate_s} s after it started.` : ".") +
+        (s.tier === "ml" ? " No fingerprint fits this one: the trained ML model named it." : ""));
+      const named = { identify: s.tier === "ml" ? "named by the ML model" : "named by fingerprint" };
+      setSteps(["watch", "detect", "identify", "block"], "explain", { ...named, explain: s.explanation ? "summary ready" : "writing summary" });
+      if (s.explanation) setSteps(["watch", "detect", "identify", "block", "explain"], null, named);
     } else {
       banner("attack", "!", `Attack detected: ${name}`, "Writing a blocking rule into the kernel now.");
       setSteps(["watch", "detect", "identify"], "block");
@@ -165,7 +178,9 @@ function render(s) {
       setSteps(["watch", "detect", "identify"], null, { identify: "real players, not an attack", block: "not needed" });
     } else {
       banner("watch", "?", "Something unusual, watching closely",
-        "Traffic is higher than normal but does not match a known attack, so nothing is blocked yet.");
+        s.tier === "residual"
+          ? "Traffic is higher than normal and neither the fingerprints nor the ML model can name it. The AI analyst is proposing a rule, which the controller tests and keeps in dry-run."
+          : "Traffic is higher than normal but does not match a known attack, so nothing is blocked yet.");
       setSteps(["watch", "detect"], "identify");
     }
   } else if (s.upstream.length) {
@@ -212,7 +227,7 @@ function render(s) {
   const votes = Object.values(s.votes || {}).filter(Boolean).length;
   $("how-count").textContent = `${fmt(last.pps || 0)} packets/s counted`;
   $("how-detect").textContent = votes ? `${votes} of 3 alarms on` : "all 3 alarms quiet";
-  $("how-identify").textContent = s.classification || "nothing to identify";
+  $("how-identify").textContent = s.classification ? `${s.classification} (by ${tierNote(s)})` : "nothing to identify";
   $("how-block").textContent = s.rules.length ? `${s.rules.length} rule${s.rules.length > 1 ? "s" : ""} active` : "nothing blocked";
   $("how-explain").textContent = s.llm || "-";
   $("m-z").textContent = (last.zscore ?? 0).toFixed(1);
@@ -222,6 +237,7 @@ function render(s) {
   $("m-src").textContent = fmt(f.unique_sources || 0);
   $("m-new").textContent = pct(f.new_source_share || 0, 0);
   $("m-cls").textContent = s.classification || "nothing unusual";
+  $("m-tier").textContent = s.classification ? tierNote(s) : "-";
   $("m-rules").textContent = s.rules.length ? s.rules.map((r) => plainRule(r.rule)).join("; ") : "no rules";
   $("m-llm").textContent = s.llm || "LLM";
 }
@@ -310,6 +326,32 @@ function showLevel(level) {
 }
 document.querySelectorAll("#level-seg button").forEach((b) => b.addEventListener("click", () => showLevel(b.dataset.level)));
 
+function renderTiers(results) {
+  const M = results.ml_eval && results.ml_eval.summary;
+  const A = results.analyst_eval && results.analyst_eval.summary;
+  const MC = results.live_minecraft;
+  if (!M) {
+    $("ml-eval").innerHTML = `<p class="hint">Run <code>shieldwall ml-train</code> to fill this in.</p>`;
+    return;
+  }
+  const T = M.real_totals || {};
+  const all = T.all_sim_model || {};
+  const rows = [...(M.real_dev_sim_model || []), ...(M.real_heldout_sim_model || [])].filter((r) => r.windows);
+  const pc = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : "-");
+  const H = A && A.heuristic, L = A && A.llm;
+  const en = MC && MC.enforce, dr = MC && MC.dryrun;
+  $("ml-eval").innerHTML = `<div class="kv">
+      <div><b>${pct(M.ml_accuracy, 0)}</b><span>exact attack family on unseen simulated seconds (fingerprints: ${pct(M.fp_malicious_accuracy, 0)} attack / not attack)</span></div>
+      ${all.windows ? `<div><b>${pct(all.ml, 0)}</b><span>of ${fmt(all.windows)} flagged seconds of real attacks named right by a model that never saw them (${pct(all.ml_confident, 0)} with 60%+ confidence)</span></div>` : ""}
+      ${H ? `<div><b>${H.accepted} / ${H.incidents}</b><span>offline analyst proposals the controller accepted</span></div>` : ""}
+      ${L ? `<div><b>${L.accepted} / ${L.incidents}</b><span>gpt-4o-mini analyst proposals accepted (every rejected one was too narrow or would hit players; ${L.latency_median_s.toFixed(1)} s, $${L.cost_per_proposal_usd.toFixed(4)} each)</span></div>` : ""}
+    </div>
+    ${rows.length ? `<table class="table"><tr><th>Real attack (never seen in training)</th><th>Fingerprints name it</th><th>ML names it</th><th>ML's answer</th></tr>` +
+      rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${pc(r.fingerprint_named, r.windows)}</td><td><b>${pc(r.ml_named, r.windows)}</b></td><td>${esc(r.ml_family)} (${pct(r.ml_confidence, 0)} sure)</td></tr>`).join("") + "</table>" : ""}
+    ${en && dr ? `<div class="quote"><small>Live test on a real Minecraft server (run by Saran on Linux: flying-squid server, mineflayer player bot, real XDP program, real CLDAP flood)</small>
+      Named <b>${esc(en.attack_classified_as)}</b> and wrote <b>${esc((en.rules_installed || []).join("; "))}</b>. The kernel dropped <b>${fmt(en.kernel_attack_packets_dropped)}</b> attack packets when enforcing and ${fmt(dr.kernel_attack_packets_dropped)} in dry-run; the player bot stayed connected in both (one host has no link bottleneck to fill).</div>` : ""}`;
+}
+
 async function loadResults() {
   if (results) return;
   try { results = await (await fetch("/api/results")).json(); } catch (e) { return; }
@@ -317,6 +359,7 @@ async function loadResults() {
   const S = results.results || [];
   const K = results.kernel_test;
   const L = results.llm_eval;
+  renderTiers(results);
   const tag = (rows, held) => (rows || []).map((r) => ({ ...r, held }));
   const R = [...tag(results.replay, false), ...tag(results.replay_cic, false),
              ...tag(results.heldout_replay, true), ...tag(results.heldout_replay_cic, true)];
@@ -340,13 +383,13 @@ async function loadResults() {
   }
 
   if (M) {
-    $("res-intro").textContent = `Three kinds of evidence: real attack data (public captures and CIC-DDoS2019) replayed through the engine, ${M.trials} randomized trials in the simulated lab (${M.attacks} attacks, ${M.negatives} non-attacks), and the XDP program tested on a real Linux kernel. Plus an evaluation of the AI assistant.`;
+    $("res-intro").textContent = `Three kinds of evidence: real attack data (public captures and CIC-DDoS2019) replayed through the engine, ${M.trials} randomized trials in the simulated lab (${M.attacks} attacks, ${M.negatives} non-attacks), and the XDP program tested on a real Linux kernel. Plus the trained ML model tested on real attacks it never saw, and evaluations of the AI assistant and analyst.`;
     showLevel("window");
     $("extra-facts").innerHTML = [
       [pct(M.type_accuracy, 0), "of caught attacks were given the right name"],
       [`${M.median_detect_s} s`, "median time from attack start to detection"],
       [`${M.legit_dropped_pct.toFixed(3)}%`, "of real player traffic wrongly dropped"],
-      [`${M.levels.incident.tp}/${M.attacks}`, "attacks caught (the misses were the weakest ones)"],
+      [`${M.levels.incident.tp}/${M.attacks}`, M.levels.incident.fn ? "attacks caught (the misses were the weakest ones)" : "attacks caught"],
     ].map(([b, t]) => `<div class="fact"><b>${b}</b><span>${t}</span></div>`).join("");
 
     const rows = M.per_type;
@@ -403,9 +446,13 @@ async function loadResults() {
       <div><b>${fmt(K.dry_run_dropped)}</b><span>packets dropped in dry-run mode (should be 0)</span></div>
       ${K.fragments_sent ? `<div><b>${fmt(K.fragments_dropped)} / ${fmt(K.fragments_sent)}</b><span>IP fragments (no ports) dropped by the fragment rule</span></div>
       <div><b>${fmt(K.heavy_hitter_dropped)} / ${fmt(K.heavy_hitter_sent)}</b><span>packets from one flooding host dropped by the blocklist, ${fmt(K.others_passed)} others passed</span></div>` : ""}
+      ${K.synack_sent ? `<div><b>${fmt(K.synack_dropped)} / ${fmt(K.synack_sent)}</b><span>SYN-ACK reflection packets dropped by the SYN-ACK rule, ${K.synack_players_dropped} of ${K.synack_players_sent} player packets touched</span></div>` : ""}
     </div>
-    ${(results.kernel_replay || []).map((k) => `<div class="quote"><small>Real capture through the real kernel: ${esc(k.capture)}</small>
-      Live loop identified <b>${esc(k.classified_as)}</b> in ${k.detect_s} s; the kernel then dropped <b>${fmt(k.capture_packets_dropped)} of ${fmt(k.capture_packets_sent)}</b> capture packets and ${k.player_packets_dropped} of ${k.player_packets_sent} player packets.</div>`).join("")}
+    ${(results.kernel_replay || []).map((k) => k.mode
+      ? `<div class="quote"><small>AI analyst on the live kernel path: ${esc(k.capture)} (ML forced unsure)</small>
+      Worked from ${fmt(k.sampled_attack_packets)} packets sampled off the interface and proposed <b>${esc(k.dry_run_rules.join("; ") || "no rule")}</b>. Controller: ${esc(k.verdict)}. Kernel drops from it: ${fmt(k.capture_packets_dropped)} (dry-run only).</div>`
+      : `<div class="quote"><small>Real capture through the real kernel: ${esc(k.capture)}</small>
+      Live loop identified <b>${esc(k.classified_as)}</b>${k.classified_by === "ml" ? " (named by the ML model)" : ""} in ${k.detect_s} s; the kernel then dropped <b>${fmt(k.capture_packets_dropped)} of ${fmt(k.capture_packets_sent)}</b> capture packets and ${k.player_packets_dropped} of ${k.player_packets_sent} player packets.</div>`).join("")}
     <p class="hint">Packets sent with scapy through the XDP program on Linux ${esc(K.kernel)}.</p>
     <span class="pass">Kernel test passed</span>`;
   } else {

@@ -3,6 +3,8 @@
 (mineflayer) on a bandwidth-capped veth, with the REAL ShieldWall XDP program on the
 server's interface, under a REAL CLDAP flood. Run once without protection (dry-run)
 and once with it (enforce), and compare what the player experiences.
+
+    cd mc-demo && npm install && sudo python3 live_demo.py
 """
 import json
 import os
@@ -10,7 +12,9 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, "/home/claude/shieldwall/controlplane")
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
+sys.path.insert(0, os.path.join(REPO, "controlplane"))
 os.environ.setdefault("SHIELDWALL_LLM", "template")
 from shieldwall.bpf_dataplane import BPFDataPlane, LiveLoop          # noqa: E402
 from shieldwall.mitigation import MitigationConfig                   # noqa: E402
@@ -18,8 +22,7 @@ from shieldwall.mitigation import MitigationConfig                   # noqa: E40
 IFACE, NS = "sw0", "atk"
 SRV_IP, ATK_IP = "192.168.77.1", "192.168.77.2"
 MCV = os.environ.get("MCV", "1.18.2")
-OBJ = "/home/claude/shieldwall/bpf/xdp_filter.o"
-HERE = "/home/claude/mc-demo"
+OBJ = os.path.join(REPO, "bpf", "xdp_filter.o")
 
 
 def sh(cmd):

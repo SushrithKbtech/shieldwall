@@ -11,8 +11,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: pip install pytest
+      - run: pip install pytest scikit-learn==1.7.2 "numpy>=2" joblib
       - run: pytest -q
+      - run: SHIELDWALL_ML=off pytest -q   # the base tool must work with no ML model too
   bpf:
     runs-on: ubuntu-latest
     steps:

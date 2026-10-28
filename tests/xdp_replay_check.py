@@ -6,6 +6,11 @@
    second, exactly as `shieldwall live` does. We record when it detects and blocks.
 3. With the rules in place, the whole capture is sent once more as a controlled pass, then a
    batch of player packets, so drops can be counted exactly from the kernel's counters.
+
+With `analyst` as a second argument the ML tier is forced to be unsure, so the anomaly goes to
+the Tier 3 analyst on the live path: it works from packets sampled off the interface, and its
+rule must pass the controller's checks and stays in dry-run. This tests that plumbing; it is
+not a claim about how often the model is unsure.
 """
 import json
 import os
@@ -16,10 +21,12 @@ import time
 
 sys.path.insert(0, "controlplane")
 
-from shieldwall.bpf_dataplane import BPFDataPlane, LiveLoop, _bpftool, _sum_percpu  # noqa: E402
+from shieldwall.bpf_dataplane import BPFDataPlane, LiveLoop, PacketSampler, _bpftool, _sum_percpu  # noqa: E402
 from shieldwall.mitigation import MitigationConfig  # noqa: E402
+from shieldwall.ml import MLVerdict  # noqa: E402
 
 CAPTURE = sys.argv[1]
+FORCE_ANALYST = len(sys.argv) > 2 and sys.argv[2] == "analyst"
 MAC = open("/sys/class/net/sw0/address").read().strip()
 BASELINE_S, ATTACK_S = 20, 12
 
@@ -89,10 +96,18 @@ def stats() -> dict:
     return _sum_percpu((_bpftool("map", "dump", "name", "stats") or [{}])[0])
 
 
+class UnsureML:
+    def predict(self, f):
+        return MLVerdict("udp_flood", 0.3, True, {"udp_flood": 0.3})
+
+
 def main() -> None:
     dp = BPFDataPlane("sw0", "bpf/xdp_filter.o")
     dp.attach(enforce=True)
-    loop = LiveLoop(dp, MitigationConfig())
+    loop = LiveLoop(dp, MitigationConfig(), PacketSampler("sw0"), analyst_async=False)
+    if FORCE_ANALYST:
+        loop.cls.ml = UnsureML()
+    tier = None
     players = netns(PLAYERS_LOOP.format(secs=BASELINE_S + ATTACK_S + 30), wait=False)
     start, attack, attack_t0, detect_s, block_s, label, rules = time.time(), None, None, None, None, None, []
     tail = 3
@@ -109,6 +124,8 @@ def main() -> None:
         since = None if attack_t0 is None else round(time.time() - attack_t0)
         if since is not None and c and c.malicious and detect_s is None:
             detect_s, label = since, c.label
+        if since is not None and c and tier is None:
+            tier = c.source
         if since is not None and rules and block_s is None:
             block_s = since
         print(f"t={time.time() - start:5.1f}s pps={f.pps:8,.0f}  {('ALERT ' + c.label) if c else 'ok':48s} rules={len(rules)}")
@@ -127,15 +144,30 @@ def main() -> None:
     dp.detach()
 
     result = {"capture": os.path.basename(CAPTURE), "kernel": platform.release(), "classified_as": label,
-              "detect_s": detect_s, "block_s": block_s, "rules": rules,
+              "classified_by": tier, "detect_s": detect_s, "block_s": block_s, "rules": rules,
               "capture_packets_sent": sent, "capture_packets_dropped": dropped,
               "player_packets_sent": 300, "player_packets_dropped": player_dropped}
+    if FORCE_ANALYST:
+        a = loop.analyst_results[0] if loop.analyst_results else {}
+        result = {"capture": result["capture"], "kernel": result["kernel"], "mode": "analyst (ML forced unsure)",
+                  "sampled_attack_packets": len(loop.attack_sample), "proposed": a.get("proposed"),
+                  "verdict": (a.get("verdict") or {}).get("verdict"), "backend": a.get("backend"),
+                  "dry_run_rules": [r.describe() for r in loop.ctl.rules.values() if r.mode == "dry-run"],
+                  "capture_packets_dropped": dropped, "player_packets_dropped": player_dropped}
     print(json.dumps(result, indent=2))
-    assert label and block_s is not None, "attack was not detected and blocked"
+    if FORCE_ANALYST:
+        assert result["verdict"] and result["verdict"].startswith("accepted"), "analyst rule was not accepted"
+        assert dropped == 0, "an analyst rule must never be enforced on its own"
+    else:
+        assert label and block_s is not None, "attack was not detected and blocked"
     assert player_dropped == 0
     os.makedirs("results", exist_ok=True)
-    with open("results/kernel_replay.json", "w") as fh:
-        json.dump(result, fh, indent=2)
+    path = "results/kernel_replay.json"
+    runs = json.load(open(path)) if os.path.exists(path) else []
+    runs = [r for r in (runs if isinstance(runs, list) else [runs])
+            if (r["capture"], r.get("mode")) != (result["capture"], result.get("mode"))] + [result]
+    with open(path, "w") as fh:
+        json.dump(runs, fh, indent=2)
     print("KERNEL REPLAY PASSED")
 
 

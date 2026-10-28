@@ -16,7 +16,11 @@
   "icmp_sent": 500,
   "icmp_dropped": 500,
   "shared_sent": 2000,
-  "shared_passed": 152,
+  "shared_passed": 156,
   "dropped_after_expiry": 0,
+  "synack_sent": 3000,
+  "synack_dropped": 2817,
+  "synack_players_sent": 400,
+  "synack_players_dropped": 0,
   "dry_run_dropped": 0
 }

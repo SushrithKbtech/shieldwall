@@ -1,0 +1,345 @@
+{
+  "summary": {
+    "heuristic": {
+      "incidents": 14,
+      "accepted": 12,
+      "attack_share_accepted": 0.8001717062255572,
+      "player_share_accepted": 0.0019417475728155341
+    },
+    "llm": {
+      "incidents": 14,
+      "accepted": 8,
+      "attack_share_accepted": 0.6981018514188699,
+      "player_share_accepted": 0.0019417475728155341,
+      "latency_median_s": 2.2471023500547744,
+      "cost_per_proposal_usd": 0.00018099642857142856
+    }
+  },
+  "rows": [
+    {
+      "attack": "simulated synack",
+      "heuristic": {
+        "rule": "RATE-LIMIT TCP SYN-ACK only from unknown sources to 100 pps",
+        "accepted": true,
+        "llm_reason": "SYN-ACK replies to connections this server never opened",
+        "verdict": "accepted in dry-run: matches 98% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.9786803893663693,
+        "player_share": 0.0
+      },
+      "llm": {
+        "rule": "RATE-LIMIT TCP src port 22 SYN only from unknown sources to 100 pps",
+        "accepted": false,
+        "llm_reason": "Rate limiting SYN packets from unknown sources on port 22 to mitigate potential flood.",
+        "verdict": "rejected: matches only 0.0% of the attack traffic",
+        "attack_share": 0.0,
+        "player_share": 0.0,
+        "latency_s": 3.795172999962233,
+        "tokens_in": 799,
+        "tokens_out": 104,
+        "reply": "```json\n{\n  \"action\": \"rate_limit\",\n  \"protocol\": \"tcp\",\n  \"source_ip\": null,\n  \"src_port\": 22,\n  \"dst_port\": null,\n  \"syn_only\": true,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": true,\n  \"rate_pps\": 100,\n  \"reason\": \"Rate limiting SYN packets from unknown sources on port 22 to mitigate potential flood.\"\n}\n```"
+      }
+    },
+    {
+      "attack": "simulated udp",
+      "heuristic": {
+        "rule": "RATE-LIMIT ALL from unknown sources to 1,000 pps",
+        "accepted": false,
+        "llm_reason": "rate-limit unknown sources while the anomaly is unnamed",
+        "verdict": "rejected: would hit 5.0% of normal player traffic",
+        "attack_share": 0.9840001004403781,
+        "player_share": 0.04951456310679612
+      },
+      "llm": {
+        "rule": "RATE-LIMIT UDP from unknown sources to 100 pps",
+        "accepted": false,
+        "llm_reason": "Rate limit unknown sources to mitigate anomalous traffic.",
+        "verdict": "rejected: would hit 1.4% of normal player traffic",
+        "attack_share": 0.9833366277313667,
+        "player_share": 0.013592233009708738,
+        "latency_s": 2.5426320999395102,
+        "tokens_in": 798,
+        "tokens_out": 97,
+        "reply": "```json\n{\n  \"action\": \"rate_limit\",\n  \"protocol\": \"udp\",\n  \"source_ip\": null,\n  \"src_port\": null,\n  \"dst_port\": null,\n  \"syn_only\": false,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": true,\n  \"rate_pps\": 100,\n  \"reason\": \"Rate limit unknown sources to mitigate anomalous traffic.\"\n}\n```"
+      }
+    },
+    {
+      "attack": "simulated syn",
+      "heuristic": {
+        "rule": "RATE-LIMIT TCP SYN only from unknown sources to 200 pps",
+        "accepted": true,
+        "llm_reason": "many half-open connections from unknown sources",
+        "verdict": "accepted in dry-run: matches 99% of the attack, 0.19% of normal traffic",
+        "attack_share": 0.9857376314603966,
+        "player_share": 0.0019417475728155341
+      },
+      "llm": {
+        "rule": "RATE-LIMIT ALL SYN only from unknown sources to 100 pps",
+        "accepted": true,
+        "llm_reason": "Rate limit SYN packets from unknown sources to mitigate potential flood.",
+        "verdict": "accepted in dry-run: matches 99% of the attack, 0.19% of normal traffic",
+        "attack_share": 0.9857376314603966,
+        "player_share": 0.0019417475728155341,
+        "latency_s": 2.261198400054127,
+        "tokens_in": 783,
+        "tokens_out": 99,
+        "reply": "```json\n{\n  \"action\": \"rate_limit\",\n  \"protocol\": \"any\",\n  \"source_ip\": null,\n  \"src_port\": null,\n  \"dst_port\": null,\n  \"syn_only\": true,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": true,\n  \"rate_pps\": 100,\n  \"reason\": \"Rate limit SYN packets from unknown sources to mitigate potential flood.\"\n}\n```"
+      }
+    },
+    {
+      "attack": "simulated cldap",
+      "heuristic": {
+        "rule": "DROP UDP src port 389 from unknown sources",
+        "accepted": true,
+        "llm_reason": "reflected replies from UDP source port 389",
+        "verdict": "accepted in dry-run: matches 99% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.9898587929794653,
+        "player_share": 0.0
+      },
+      "llm": {
+        "rule": "DROP UDP src port 389 SYN only from unknown sources",
+        "accepted": false,
+        "llm_reason": "Anomalous UDP flood detected from unknown sources using port 389.",
+        "verdict": "rejected: matches only 0.0% of the attack traffic",
+        "attack_share": 0.0,
+        "player_share": 0.0,
+        "latency_s": 2.233006300055422,
+        "tokens_in": 810,
+        "tokens_out": 100,
+        "reply": "```json\n{\n  \"action\": \"drop\",\n  \"protocol\": \"udp\",\n  \"source_ip\": null,\n  \"src_port\": 389,\n  \"dst_port\": null,\n  \"syn_only\": true,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": true,\n  \"rate_pps\": null,\n  \"reason\": \"Anomalous UDP flood detected from unknown sources using port 389.\"\n}\n```"
+      }
+    },
+    {
+      "attack": "simulated ntp",
+      "heuristic": {
+        "rule": "DROP UDP src port 123 from unknown sources",
+        "accepted": true,
+        "llm_reason": "reflected replies from UDP source port 123",
+        "verdict": "accepted in dry-run: matches 98% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.9831666603757802,
+        "player_share": 0.0
+      },
+      "llm": {
+        "rule": "DROP UDP src port 123 from unknown sources",
+        "accepted": true,
+        "llm_reason": "High volume of UDP packets from unknown sources on port 123",
+        "verdict": "accepted in dry-run: matches 98% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.9831666603757802,
+        "player_share": 0.0,
+        "latency_s": 2.386684799916111,
+        "tokens_in": 810,
+        "tokens_out": 100,
+        "reply": "```json\n{\n  \"action\": \"drop\",\n  \"protocol\": \"udp\",\n  \"source_ip\": null,\n  \"src_port\": 123,\n  \"dst_port\": null,\n  \"syn_only\": false,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": true,\n  \"rate_pps\": 244,\n  \"reason\": \"High volume of UDP packets from unknown sources on port 123\"\n}\n```"
+      }
+    },
+    {
+      "attack": "amp.UDP.DNSANY.pcap",
+      "heuristic": {
+        "rule": "DROP ALL from 8.8.8.8",
+        "accepted": true,
+        "llm_reason": "single heavy source 8.8.8.8 (48% of traffic)",
+        "verdict": "accepted in dry-run: matches 48% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.48436374319792636,
+        "player_share": 0.0
+      },
+      "llm": {
+        "rule": "DROP UDP from 8.8.8.8",
+        "accepted": true,
+        "llm_reason": "High packet rate from known source causing anomalous traffic",
+        "verdict": "accepted in dry-run: matches 48% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.48436374319792636,
+        "player_share": 0.0,
+        "latency_s": 1.9198424000060186,
+        "tokens_in": 809,
+        "tokens_out": 105,
+        "reply": "```json\n{\n  \"action\": \"drop\",\n  \"protocol\": \"udp\",\n  \"source_ip\": \"8.8.8.8\",\n  \"src_port\": null,\n  \"dst_port\": null,\n  \"syn_only\": false,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": false,\n  \"rate_pps\": 11196,\n  \"reason\": \"High packet rate from known source causing anomalous traffic\"\n}\n```"
+      }
+    },
+    {
+      "attack": "amp.UDP.memcached.ntp.cldap.pcap",
+      "heuristic": {
+        "rule": "DROP UDP src port 11211 from unknown sources",
+        "accepted": true,
+        "llm_reason": "reflected replies from UDP source port 11211",
+        "verdict": "accepted in dry-run: matches 36% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.3582899158849721,
+        "player_share": 0.0
+      },
+      "llm": {
+        "rule": "RATE-LIMIT UDP src port 11211 from unknown sources to 1,000 pps",
+        "accepted": true,
+        "llm_reason": "Rate limiting unknown sources to mitigate potential UDP flood.",
+        "verdict": "accepted in dry-run: matches 36% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.3582899158849721,
+        "player_share": 0.0,
+        "latency_s": 2.117123299976811,
+        "tokens_in": 837,
+        "tokens_out": 100,
+        "reply": "```json\n{\n  \"action\": \"rate_limit\",\n  \"protocol\": \"udp\",\n  \"source_ip\": null,\n  \"src_port\": 11211,\n  \"dst_port\": null,\n  \"syn_only\": false,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": true,\n  \"rate_pps\": 1000,\n  \"reason\": \"Rate limiting unknown sources to mitigate potential UDP flood.\"\n}\n```"
+      }
+    },
+    {
+      "attack": "pkt.TCP.synflood.spoofed.pcap",
+      "heuristic": {
+        "rule": "RATE-LIMIT TCP SYN only from unknown sources to 200 pps",
+        "accepted": true,
+        "llm_reason": "many half-open connections from unknown sources",
+        "verdict": "accepted in dry-run: matches 42% of the attack, 0.19% of normal traffic",
+        "attack_share": 0.41827752788360767,
+        "player_share": 0.0019417475728155341
+      },
+      "llm": {
+        "rule": "RATE-LIMIT UDP SYN only from unknown sources to 20 pps",
+        "accepted": false,
+        "llm_reason": "Rate limiting unknown sources to mitigate potential UDP flood.",
+        "verdict": "rejected: matches only 0.0% of the attack traffic",
+        "attack_share": 0.0,
+        "player_share": 0.0,
+        "latency_s": 2.1826762000564486,
+        "tokens_in": 783,
+        "tokens_out": 97,
+        "reply": "```json\n{\n  \"action\": \"rate_limit\",\n  \"protocol\": \"udp\",\n  \"source_ip\": null,\n  \"src_port\": null,\n  \"dst_port\": null,\n  \"syn_only\": true,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": true,\n  \"rate_pps\": 20,\n  \"reason\": \"Rate limiting unknown sources to mitigate potential UDP flood.\"\n}\n```"
+      }
+    },
+    {
+      "attack": "amp.TCP.reflection.SYNACK.pcap",
+      "heuristic": {
+        "rule": "DROP TCP src port 80 from unknown sources",
+        "accepted": true,
+        "llm_reason": "reflected replies from TCP source port 80",
+        "verdict": "accepted in dry-run: matches 81% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.8074849038009093,
+        "player_share": 0.0
+      },
+      "llm": {
+        "rule": "{'action': 'rate_limit', 'protocol': 'any', 'source_ip': 'null', 'src_port': 80, 'dst_port': 'null', 'syn_only': False, 'synack_only': False, 'fragments_only': False, 'unknown_sources_only': True, 'rate_pps': 500, 'reason': 'Rate limiting unknown sources to mitigate anomalous traffic.'}",
+        "accepted": false,
+        "verdict": "rejected: Expected 4 octets in 'null'",
+        "attack_share": null,
+        "player_share": null,
+        "latency_s": 2.345194600056857,
+        "tokens_in": 796,
+        "tokens_out": 100,
+        "reply": "```json\n{\n  \"action\": \"rate_limit\",\n  \"protocol\": \"any\",\n  \"source_ip\": \"null\",\n  \"src_port\": 80,\n  \"dst_port\": \"null\",\n  \"syn_only\": false,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": true,\n  \"rate_pps\": 500,\n  \"reason\": \"Rate limiting unknown sources to mitigate anomalous traffic.\"\n}\n```"
+      }
+    },
+    {
+      "attack": "amp.UDP.isakmp.pcap",
+      "heuristic": {
+        "rule": "DROP UDP src port 4500 from unknown sources",
+        "accepted": true,
+        "llm_reason": "reflected replies from UDP source port 4500",
+        "verdict": "accepted in dry-run: matches 81% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.8139781556351414,
+        "player_share": 0.0
+      },
+      "llm": {
+        "rule": "RATE-LIMIT UDP src port 4500 from unknown sources to 100 pps",
+        "accepted": true,
+        "llm_reason": "Rate limiting unknown sources on UDP to mitigate anomalous traffic.",
+        "verdict": "accepted in dry-run: matches 81% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.8139781556351414,
+        "player_share": 0.0,
+        "latency_s": 2.3999379000160843,
+        "tokens_in": 798,
+        "tokens_out": 101,
+        "reply": "```json\n{\n  \"action\": \"rate_limit\",\n  \"protocol\": \"udp\",\n  \"source_ip\": null,\n  \"src_port\": 4500,\n  \"dst_port\": null,\n  \"syn_only\": false,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": true,\n  \"rate_pps\": 100,\n  \"reason\": \"Rate limiting unknown sources on UDP to mitigate anomalous traffic.\"\n}\n```"
+      }
+    },
+    {
+      "attack": "amp.UDP.snmp.src161.pcapng",
+      "heuristic": {
+        "rule": "DROP UDP src port 161 from unknown sources",
+        "accepted": true,
+        "llm_reason": "reflected replies from UDP source port 161",
+        "verdict": "accepted in dry-run: matches 93% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.9264149315036666,
+        "player_share": 0.0
+      },
+      "llm": {
+        "rule": "DROP UDP src port 161 from unknown sources",
+        "accepted": true,
+        "llm_reason": "Anomalous UDP flood traffic from unknown sources",
+        "verdict": "accepted in dry-run: matches 93% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.9264149315036666,
+        "player_share": 0.0,
+        "latency_s": 2.1328362999483943,
+        "tokens_in": 797,
+        "tokens_out": 98,
+        "reply": "```json\n{\n  \"action\": \"drop\",\n  \"protocol\": \"udp\",\n  \"source_ip\": null,\n  \"src_port\": 161,\n  \"dst_port\": null,\n  \"syn_only\": false,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": true,\n  \"rate_pps\": 188335,\n  \"reason\": \"Anomalous UDP flood traffic from unknown sources\"\n}\n```"
+      }
+    },
+    {
+      "attack": "amp.dns.RRSIG.fragmented.pcap",
+      "skipped": "not flagged by Tier 1 (below the alert floor)"
+    },
+    {
+      "attack": "pkt.UDP.rdm.fixedlength.pcapng",
+      "heuristic": {
+        "rule": "RATE-LIMIT ALL from unknown sources to 1,000 pps",
+        "accepted": false,
+        "llm_reason": "rate-limit unknown sources while the anomaly is unnamed",
+        "verdict": "rejected: would hit 5.0% of normal player traffic",
+        "attack_share": 0.32919785184610506,
+        "player_share": 0.04951456310679612
+      },
+      "llm": {
+        "rule": "DROP UDP from 134.209.44.67",
+        "accepted": true,
+        "llm_reason": "Identified top talker contributing to anomalous UDP flood traffic.",
+        "verdict": "accepted in dry-run: matches 13% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.12536450094260712,
+        "player_share": 0.0,
+        "latency_s": 2.7028082999167964,
+        "tokens_in": 799,
+        "tokens_out": 106,
+        "reply": "```json\n{\n  \"action\": \"drop\",\n  \"protocol\": \"udp\",\n  \"source_ip\": \"134.209.44.67\",\n  \"src_port\": null,\n  \"dst_port\": null,\n  \"syn_only\": false,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": false,\n  \"rate_pps\": 395,\n  \"reason\": \"Identified top talker contributing to anomalous UDP flood traffic.\"\n}\n```"
+      }
+    },
+    {
+      "attack": "CIC-DDoS2019 01-12/Syn.csv",
+      "heuristic": {
+        "rule": "DROP ALL from 172.16.0.5",
+        "accepted": true,
+        "llm_reason": "single heavy source 172.16.0.5 (95% of traffic)",
+        "verdict": "accepted in dry-run: matches 95% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.948308550267982,
+        "player_share": 0.0
+      },
+      "llm": {
+        "rule": "DROP UDP from 172.16.0.5",
+        "accepted": false,
+        "llm_reason": "Identified as top talker contributing to anomalous volume.",
+        "verdict": "rejected: matches only 0.0% of the attack traffic",
+        "attack_share": 0.00047415427513399107,
+        "player_share": 0.0,
+        "latency_s": 2.1205127999419346,
+        "tokens_in": 796,
+        "tokens_out": 106,
+        "reply": "```json\n{\n  \"action\": \"drop\",\n  \"protocol\": \"udp\",\n  \"source_ip\": \"172.16.0.5\",\n  \"src_port\": null,\n  \"dst_port\": null,\n  \"syn_only\": false,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": false,\n  \"rate_pps\": 40853,\n  \"reason\": \"Identified as top talker contributing to anomalous volume.\"\n}\n```"
+      }
+    },
+    {
+      "attack": "CIC-DDoS2019 01-12/UDPLag.csv",
+      "heuristic": {
+        "rule": "DROP ALL from 172.16.0.5",
+        "accepted": true,
+        "llm_reason": "single heavy source 172.16.0.5 (91% of traffic)",
+        "verdict": "accepted in dry-run: matches 91% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.9074992723504692,
+        "player_share": 0.0
+      },
+      "llm": {
+        "rule": "DROP ALL from 172.16.0.5",
+        "accepted": true,
+        "llm_reason": "Top talker identified as a potential source of anomalous traffic",
+        "verdict": "accepted in dry-run: matches 91% of the attack, 0.00% of normal traffic",
+        "attack_share": 0.9074992723504692,
+        "player_share": 0.0,
+        "latency_s": 1.9836934000486508,
+        "tokens_in": 798,
+        "tokens_out": 107,
+        "reply": "```json\n{\n  \"action\": \"drop\",\n  \"protocol\": \"any\",\n  \"source_ip\": \"172.16.0.5\",\n  \"src_port\": null,\n  \"dst_port\": null,\n  \"syn_only\": false,\n  \"synack_only\": false,\n  \"fragments_only\": false,\n  \"unknown_sources_only\": false,\n  \"rate_pps\": 21847,\n  \"reason\": \"Top talker identified as a potential source of anomalous traffic\"\n}\n```"
+      }
+    }
+  ]
+}

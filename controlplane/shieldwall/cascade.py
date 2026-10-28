@@ -13,6 +13,7 @@ the base tool still runs with no extra dependencies.
 from __future__ import annotations
 
 import os
+import sys
 
 from .classifier import Classification, Classifier
 from .models import Features
@@ -24,6 +25,8 @@ ML_LABEL = {
     "synack_reflection": "TCP SYN-ACK reflection flood", "udp_flood": "UDP flood",
     "single_source_flood": "single-host flood",
 }
+# ML family -> the controller's attack kind, so an ML-named attack gets the same rules as a fingerprinted one
+ML_KIND = {f"{name}_amp": f"{name}_amplification" for name in ("cldap", "dns", "ntp", "memcached", "ssdp")}
 _DEFAULT_MODEL = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "results", "ml_model.joblib")
 
 
@@ -38,8 +41,9 @@ class CascadeClassifier:
             try:
                 from .ml import MLClassifier
                 self.ml = MLClassifier.load(path)
-            except Exception:
+            except Exception as e:  # missing scikit-learn, or a pickle from other library versions
                 self.ml = None
+                print(f"shieldwall: ML tier off, could not load {path}: {e}", file=sys.stderr)
 
     def learn(self, f: Features) -> None:
         self.fp.learn(f)
@@ -58,7 +62,7 @@ class CascadeClassifier:
                 self.last_source = "ml"
                 if mv.malicious:
                     return Classification(
-                        kind=mv.family, label=ML_LABEL.get(mv.family, mv.family), malicious=True,
+                        kind=ML_KIND.get(mv.family, mv.family), label=ML_LABEL.get(mv.family, mv.family), malicious=True,
                         confidence=mv.confidence,
                         evidence=[f"ML classifier identified {ML_LABEL.get(mv.family, mv.family)} "
                                   f"(confidence {mv.confidence:.0%})",

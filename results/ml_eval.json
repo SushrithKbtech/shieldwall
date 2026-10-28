@@ -2,6 +2,7 @@
   "summary": {
     "n_train": 1952,
     "n_test": 488,
+    "n_real_train": 95,
     "classes": [
       "benign",
       "cldap_amp",
@@ -15,24 +16,46 @@
       "synack_reflection",
       "udp_flood"
     ],
+    "features": [
+      "log_pps",
+      "log_bps",
+      "udp_share",
+      "log_syn_ack",
+      "amp_share",
+      "frag_share",
+      "new_source_share",
+      "src_entropy",
+      "synack_share",
+      "top_share",
+      "log_unique",
+      "syn_share",
+      "ack_share",
+      "n_amp_ports",
+      "avg_bytes_log",
+      "amp53",
+      "amp123",
+      "amp389",
+      "amp1900",
+      "amp11211"
+    ],
     "ml_macro_f1": 1.0,
     "ml_accuracy": 1.0,
     "ml_malicious_accuracy": 1.0,
     "fp_malicious_accuracy": 0.9098360655737705,
-    "ml_latency_us": 44025.425608615515,
-    "fp_latency_us": 31.7929815533627,
+    "ml_latency_us": 50236.224180152334,
+    "fp_latency_us": 27.117214917556428,
     "per_family": {
       "benign": {
         "n": 100,
         "ml_fam": 100,
-        "fp_fam": 0,
+        "fp_fam": 100,
         "ml_mal": 100,
         "fp_mal": 100
       },
       "legit_surge": {
         "n": 64,
         "ml_fam": 64,
-        "fp_fam": 15,
+        "fp_fam": 64,
         "ml_mal": 64,
         "fp_mal": 64
       },
@@ -100,7 +123,354 @@
         "fp_mal": 36
       }
     },
-    "feature_importance": null
+    "shipped": "simulator only",
+    "real_dev_sim_model": [
+      {
+        "name": "amp.UDP.DNSANY.pcap",
+        "truth": [
+          "dns_amp"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "dns_amplification",
+        "ml_named": 19,
+        "ml_confident": 0,
+        "ml_called_attack": 19,
+        "ml_family": "dns_amp",
+        "ml_confidence": 0.508
+      },
+      {
+        "name": "amp.UDP.memcached.ntp.cldap.pcap",
+        "truth": [
+          "cldap_amp",
+          "memcached_amp",
+          "multi_vector",
+          "ntp_amp"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "multi_vector_amplification",
+        "ml_named": 19,
+        "ml_confident": 0,
+        "ml_called_attack": 19,
+        "ml_family": "cldap_amp",
+        "ml_confidence": 0.231
+      },
+      {
+        "name": "pkt.TCP.synflood.spoofed.pcap",
+        "truth": [
+          "syn_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "syn_flood",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "syn_flood",
+        "ml_confidence": 0.983
+      },
+      {
+        "name": "CIC-DDoS2019 01-12/Syn.csv",
+        "truth": [
+          "single_source_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "single_source_flood",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "single_source_flood",
+        "ml_confidence": 1.0
+      },
+      {
+        "name": "CIC-DDoS2019 01-12/DrDoS_NTP.csv",
+        "truth": [
+          "single_source_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "single_source_flood",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "single_source_flood",
+        "ml_confidence": 1.0
+      },
+      {
+        "name": "CIC-DDoS2019 01-12/DrDoS_LDAP.csv",
+        "truth": [
+          "single_source_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "single_source_flood",
+        "ml_named": 19,
+        "ml_confident": 2,
+        "ml_called_attack": 19,
+        "ml_family": "single_source_flood",
+        "ml_confidence": 0.567
+      }
+    ],
+    "real_heldout_sim_model": [
+      {
+        "name": "amp.TCP.reflection.SYNACK.pcap",
+        "truth": [
+          "synack_reflection"
+        ],
+        "windows": 19,
+        "fingerprint_named": 0,
+        "fingerprint_kind": "unknown",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "synack_reflection",
+        "ml_confidence": 1.0
+      },
+      {
+        "name": "amp.UDP.isakmp.pcap",
+        "truth": [
+          "udp_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "udp_flood",
+        "ml_named": 19,
+        "ml_confident": 0,
+        "ml_called_attack": 19,
+        "ml_family": "udp_flood",
+        "ml_confidence": 0.126
+      },
+      {
+        "name": "amp.UDP.snmp.src161.pcapng",
+        "truth": [
+          "udp_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "udp_flood",
+        "ml_named": 19,
+        "ml_confident": 0,
+        "ml_called_attack": 19,
+        "ml_family": "udp_flood",
+        "ml_confidence": 0.126
+      },
+      {
+        "name": "amp.dns.RRSIG.fragmented.pcap",
+        "truth": [
+          "dns_amp"
+        ],
+        "windows": 0,
+        "fingerprint_named": 0,
+        "fingerprint_kind": null,
+        "ml_named": 0,
+        "ml_confident": 0,
+        "ml_called_attack": 0,
+        "ml_family": null,
+        "ml_confidence": null
+      },
+      {
+        "name": "pkt.UDP.rdm.fixedlength.pcapng",
+        "truth": [
+          "udp_flood"
+        ],
+        "windows": 4,
+        "fingerprint_named": 0,
+        "fingerprint_kind": "unknown",
+        "ml_named": 0,
+        "ml_confident": 0,
+        "ml_called_attack": 4,
+        "ml_family": "single_source_flood",
+        "ml_confidence": 0.516
+      },
+      {
+        "name": "CIC-DDoS2019 01-12/UDPLag.csv",
+        "truth": [
+          "single_source_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "single_source_flood",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "single_source_flood",
+        "ml_confidence": 1.0
+      },
+      {
+        "name": "CIC-DDoS2019 03-11/Portmap.csv",
+        "truth": [
+          "single_source_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "single_source_flood",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "single_source_flood",
+        "ml_confidence": 1.0
+      },
+      {
+        "name": "CIC-DDoS2019 01-12/DrDoS_SSDP.csv",
+        "truth": [
+          "single_source_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "single_source_flood",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "single_source_flood",
+        "ml_confidence": 1.0
+      }
+    ],
+    "real_heldout_mixed_model": [
+      {
+        "name": "amp.TCP.reflection.SYNACK.pcap",
+        "truth": [
+          "synack_reflection"
+        ],
+        "windows": 19,
+        "fingerprint_named": 0,
+        "fingerprint_kind": "unknown",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "synack_reflection",
+        "ml_confidence": 1.0
+      },
+      {
+        "name": "amp.UDP.isakmp.pcap",
+        "truth": [
+          "udp_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "udp_flood",
+        "ml_named": 0,
+        "ml_confident": 0,
+        "ml_called_attack": 19,
+        "ml_family": "syn_flood",
+        "ml_confidence": 0.471
+      },
+      {
+        "name": "amp.UDP.snmp.src161.pcapng",
+        "truth": [
+          "udp_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "udp_flood",
+        "ml_named": 19,
+        "ml_confident": 0,
+        "ml_called_attack": 19,
+        "ml_family": "udp_flood",
+        "ml_confidence": 0.354
+      },
+      {
+        "name": "amp.dns.RRSIG.fragmented.pcap",
+        "truth": [
+          "dns_amp"
+        ],
+        "windows": 0,
+        "fingerprint_named": 0,
+        "fingerprint_kind": null,
+        "ml_named": 0,
+        "ml_confident": 0,
+        "ml_called_attack": 0,
+        "ml_family": null,
+        "ml_confidence": null
+      },
+      {
+        "name": "pkt.UDP.rdm.fixedlength.pcapng",
+        "truth": [
+          "udp_flood"
+        ],
+        "windows": 4,
+        "fingerprint_named": 0,
+        "fingerprint_kind": "unknown",
+        "ml_named": 4,
+        "ml_confident": 4,
+        "ml_called_attack": 4,
+        "ml_family": "udp_flood",
+        "ml_confidence": 0.74
+      },
+      {
+        "name": "CIC-DDoS2019 01-12/UDPLag.csv",
+        "truth": [
+          "single_source_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "single_source_flood",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "single_source_flood",
+        "ml_confidence": 1.0
+      },
+      {
+        "name": "CIC-DDoS2019 03-11/Portmap.csv",
+        "truth": [
+          "single_source_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "single_source_flood",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "single_source_flood",
+        "ml_confidence": 1.0
+      },
+      {
+        "name": "CIC-DDoS2019 01-12/DrDoS_SSDP.csv",
+        "truth": [
+          "single_source_flood"
+        ],
+        "windows": 19,
+        "fingerprint_named": 19,
+        "fingerprint_kind": "single_source_flood",
+        "ml_named": 19,
+        "ml_confident": 19,
+        "ml_called_attack": 19,
+        "ml_family": "single_source_flood",
+        "ml_confidence": 1.0
+      }
+    ],
+    "real_totals": {
+      "dev_sim_model": {
+        "windows": 114,
+        "fingerprint": 1.0,
+        "ml": 1.0,
+        "ml_confident": 0.5175438596491229,
+        "ml_attack": 1.0
+      },
+      "heldout_sim_model": {
+        "windows": 118,
+        "fingerprint": 0.8050847457627118,
+        "ml": 0.9661016949152542,
+        "ml_confident": 0.6440677966101694,
+        "ml_attack": 1.0
+      },
+      "all_sim_model": {
+        "windows": 232,
+        "fingerprint": 0.9008620689655172,
+        "ml": 0.9827586206896551,
+        "ml_confident": 0.5818965517241379,
+        "ml_attack": 1.0
+      },
+      "heldout_mixed_model": {
+        "windows": 118,
+        "fingerprint": 0.8050847457627118,
+        "ml": 0.8389830508474576,
+        "ml_confident": 0.6779661016949152,
+        "ml_attack": 1.0
+      }
+    }
   },
   "report": {
     "benign": {

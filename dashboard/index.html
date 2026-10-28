@@ -64,6 +64,7 @@
           <button data-preset="dns"><b>DNS amplification</b><small>huge DNS replies you never asked for</small></button>
           <button data-preset="syn"><b>SYN flood</b><small>fake connection requests that never finish</small></button>
           <button data-preset="udp"><b>UDP flood</b><small>a botnet sprays junk at random ports</small></button>
+          <button data-preset="synack"><b>SYN-ACK reflection</b><small>no fingerprint fits: the trained ML model names it</small></button>
           <button data-preset="flash_crowd" class="soft"><b>Flash crowd</b><small>lots of real players join at once (not an attack)</small></button>
           <button data-preset="mega_cldap" class="hot"><b>Bigger than the internet link</b><small>25 Gbps into a 10 Gbps pipe</small></button>
         </div>
@@ -119,13 +120,13 @@
   <section class="tab-panel" id="tab-how">
     <div class="intro card">
       <h2>How ShieldWall protects a server</h2>
-      <p>Think of ShieldWall as a bouncer at the door of a game server. It watches everyone arriving, notices when a mob shows up, works out who they are, keeps them out, and then tells the owner what happened in plain English. No training data is needed: it learns what "normal" looks like from the first few seconds of real traffic.</p>
+      <p>Think of ShieldWall as a bouncer at the door of a game server. It watches everyone arriving, notices when a mob shows up, works out who they are, keeps them out, and then tells the owner what happened in plain English. The alarms need no training data: they learn what "normal" looks like from the first few seconds of real traffic. Naming the attack uses three tiers, cheapest first: fingerprints, then a trained ML model, then an AI analyst.</p>
     </div>
 
     <ol class="pipeline">
       <li><span class="num">1</span><h3>Count</h3><p>A tiny program inside the Linux kernel (eBPF/XDP) looks at every packet the moment it arrives and adds it to counters.</p><span class="live" id="how-count"></span></li>
       <li><span class="num">2</span><h3>Detect</h3><p>Once a second, three alarms compare the counters with normal. If two agree for two seconds, it is an incident.</p><span class="live" id="how-detect"></span></li>
-      <li><span class="num">3</span><h3>Identify</h3><p>A fingerprint check names the attack, or decides it is just a crowd of real players.</p><span class="live" id="how-identify"></span></li>
+      <li><span class="num">3</span><h3>Identify</h3><p>A fingerprint check names known attacks in microseconds. If none fits, a trained ML model names it. If the model is unsure too, an AI analyst proposes a rule, which is tested and kept in dry-run.</p><span class="live" id="how-identify"></span></li>
       <li><span class="num">4</span><h3>Block</h3><p>A rule is written back into the kernel, which drops matching packets before they cost anything. Rules expire after 60 s.</p><span class="live" id="how-block"></span></li>
       <li><span class="num">5</span><h3>Explain</h3><p>An LLM turns the facts into a short summary and answers questions. It never decides what to block.</p><span class="live" id="how-explain"></span></li>
     </ol>
@@ -167,6 +168,19 @@
           <div class="live-val">Now: <b id="m-cls">nothing unusual</b></div>
         </article>
         <article class="model">
+          <header><span class="tag identify">Identify</span><h4>Trained ML model</h4><code>gradient-boosted trees (scikit-learn)</code></header>
+          <p class="q">"No fingerprint fits. Which attack family does this look like?"</p>
+          <p>Trained on thousands of labelled seconds of simulated traffic (then tested on real attack captures it never saw), using the same 20 numbers the alarms already measure (shares, ratios, entropy, packet size, which reflection ports are present). It only runs when the alarms fired and no fingerprint matched, and it must be at least 60% sure. It caught the SYN-ACK reflection attack the fingerprints missed.</p>
+          <p class="analogy">Like a senior bouncer who has seen thousands of fights and recognises one nobody wrote a rule for.</p>
+          <div class="live-val">Named by: <b id="m-tier">-</b></div>
+        </article>
+        <article class="model">
+          <header><span class="tag identify">Identify</span><h4>AI analyst</h4><code>LLM + safety checks</code></header>
+          <p class="q">"Nobody can name it. What one narrow rule would stop it?"</p>
+          <p>For the rare anomaly neither the fingerprints nor the model can name, an LLM (or an offline heuristic) reads the evidence and proposes one rule. The controller tests it on real traffic: it must hit under 1% of players, match at least 5% of the attack, and never drop the game ports. Accepted rules only log what they would drop (dry-run).</p>
+          <p class="analogy">Like a detective who suggests a fix, while the manager decides whether to use it.</p>
+        </article>
+        <article class="model">
           <header><span class="tag block">Block</span><h4>Mitigation controller + XDP filter</h4><code>expiring rules in BPF maps</code></header>
           <p class="q">"What should we drop, and for how long?"</p>
           <p>Clean fingerprints get an exact drop rule per attack vector (for example "UDP from port 389"), plus a rule for the IP fragments real amplification floods contain. A single flooding host gets its own block. Messier floods get a speed limit for unknown senders, while known players pass. Rules expire after 60 s unless the attack continues. Admin addresses are never blocked.</p>
@@ -182,11 +196,12 @@
     </section>
 
     <section class="card why">
-      <h3>Why statistics instead of a trained ML model?</h3>
+      <h3>Why statistics first, a trained model second, and the LLM last?</h3>
       <ul>
-        <li><b>No training data needed.</b> It learns your server's normal traffic in seconds and keeps adapting as the server grows.</li>
-        <li><b>Explainable.</b> Every alert can say exactly which alarm fired and why, which an LLM can then put into words.</li>
-        <li><b>Fast.</b> The maths runs in microseconds; the expensive part happens in the kernel.</li>
+        <li><b>Statistics need no training data.</b> The alarms learn your server's normal traffic in seconds and keep adapting as it grows.</li>
+        <li><b>Fingerprints are exact and explainable.</b> They name known attacks in microseconds and can say exactly why.</li>
+        <li><b>The ML model covers what nobody wrote a rule for.</b> It runs only on anomalies the fingerprints could not name, so its cost (milliseconds) is paid rarely.</li>
+        <li><b>The LLM is slow and can be wrong, so it never blocks.</b> It explains, and proposes rules that the controller tests and keeps in dry-run.</li>
       </ul>
     </section>
   </section>
@@ -247,6 +262,11 @@
       <table class="table" id="scenario-table"></table>
     </section>
 
+    <section class="card">
+      <div class="card-head"><h3>Trained ML model and AI analyst</h3><span class="hint">tiers 2 and 3</span></div>
+      <div id="ml-eval"></div>
+    </section>
+
     <div class="grid2">
       <section class="card">
         <div class="card-head"><h3>On a real Linux kernel</h3><span class="hint">tests/xdp_kernel_test.sh</span></div>
@@ -265,7 +285,8 @@
         <li><b>200 random trials, half attacks and half not:</b> CLDAP, DNS, NTP, SYN and UDP attacks from 3,000 to 300,000 packets per second, plus flash crowds and quiet periods.</li>
         <li><b>Real attack data:</b> public captures from github.com/StopDDoS/packet-captures and CIC-DDoS2019 flow records, scored against which packets were attack traffic.</li>
         <li><b>Why recall is below 100% per second:</b> ShieldWall waits 2 seconds before acting so one odd second never blocks anyone. Those first seconds count as misses. That wait is why precision is 100%.</li>
-        <li><b>Reproduce:</b> <code>shieldwall metrics</code>, <code>shieldwall eval</code>, <code>shieldwall llm-eval</code>.</li>
+        <li><b>ML model:</b> trained on simulated seconds only, then scored on real attack captures it never saw. Simulated families separate cleanly, so the simulated score is an upper bound; the real-capture score is the one that counts.</li>
+        <li><b>Reproduce:</b> <code>shieldwall metrics</code>, <code>shieldwall eval</code>, <code>shieldwall ml-train</code>, <code>shieldwall analyst-eval</code>, <code>shieldwall llm-eval</code>.</li>
       </ul>
     </section>
   </section>

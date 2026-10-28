@@ -29,6 +29,7 @@
 #define RULE_SYN_ONLY      0x01
 #define RULE_UNTRUSTED     0x02
 #define RULE_FRAG          0x04   /* non-first IP fragments (no ports) */
+#define RULE_SYNACK        0x08   /* SYN-ACK replies (TCP reflection) */
 
 /* ---- counters: kernel writes, userspace reads ----------------------------- */
 
@@ -42,6 +43,7 @@ struct counters {
 	__u64 dropped;
 	__u64 allowlisted;
 	__u64 frag;
+	__u64 synack;
 };
 
 struct {
@@ -79,7 +81,7 @@ struct {
 
 struct rule_key {
 	__u8  proto;     /* IPPROTO_TCP / IPPROTO_UDP */
-	__u8  flags;     /* RULE_SYN_ONLY | RULE_UNTRUSTED */
+	__u8  flags;     /* RULE_SYN_ONLY | RULE_UNTRUSTED | RULE_FRAG | RULE_SYNACK */
 	__u16 sport;     /* host order, 0 = any */
 	__u16 dport;     /* host order, 0 = any */
 	__u16 pad;
@@ -176,7 +178,7 @@ static __always_inline int token_bucket_allow(struct rule_val *r, __u64 now)
 }
 
 static __always_inline struct rule_val *
-lookup_rule(__u8 proto, __u16 sport, __u16 dport, int is_syn, int untrusted, int is_frag)
+lookup_rule(__u8 proto, __u16 sport, __u16 dport, int is_syn, int is_synack, int untrusted, int is_frag)
 {
 	struct rule_key k = { .proto = proto };
 	struct rule_val *r;
@@ -203,6 +205,18 @@ lookup_rule(__u8 proto, __u16 sport, __u16 dport, int is_syn, int untrusted, int
 	if (r)
 		return r;
 	k.dport = 0;
+	if (is_synack) {                     /* SYN-ACKs nobody here asked for: reflection */
+		if (untrusted) {
+			k.flags = RULE_SYNACK | RULE_UNTRUSTED;
+			r = bpf_map_lookup_elem(&rules, &k);
+			if (r)
+				return r;
+		}
+		k.flags = RULE_SYNACK;
+		r = bpf_map_lookup_elem(&rules, &k);
+		if (r)
+			return r;
+	}
 	if (untrusted) {
 		k.flags = RULE_UNTRUSTED | (is_syn ? RULE_SYN_ONLY : 0);
 		r = bpf_map_lookup_elem(&rules, &k);
@@ -249,7 +263,7 @@ int shieldwall_xdp(struct xdp_md *ctx)
 	int is_frag = (ip->frag_off & bpf_htons(0x1FFF)) != 0;   /* non-first fragment: no L4 header */
 
 	__u16 sport = 0, dport = 0;
-	int is_syn = 0, is_ack = 0;
+	int is_syn = 0, is_ack = 0, is_synack = 0;
 
 	struct counters *c = bpf_map_lookup_elem(&stats, &zero);
 	if (!c)
@@ -274,11 +288,14 @@ int shieldwall_xdp(struct xdp_md *ctx)
 		dport = bpf_ntohs(tcp->dest);
 		is_syn = tcp->syn && !tcp->ack;
 		is_ack = tcp->ack;
+		is_synack = tcp->syn && tcp->ack;
 		c->tcp++;
 		if (is_syn)
 			c->syn++;
 		if (is_ack)
 			c->ack++;
+		if (is_synack)
+			c->synack++;
 	} else if (ip->protocol == IPPROTO_UDP) {
 		struct udphdr *udp = l4;
 		if ((void *)(udp + 1) > data_end)
@@ -339,7 +356,7 @@ int shieldwall_xdp(struct xdp_md *ctx)
 		return XDP_PASS;
 
 	int untrusted = bpf_map_lookup_elem(&trusted, &saddr) == 0;
-	struct rule_val *r = lookup_rule(ip->protocol, sport, dport, is_syn, untrusted, is_frag);
+	struct rule_val *r = lookup_rule(ip->protocol, sport, dport, is_syn, is_synack, untrusted, is_frag);
 	if (!r)
 		return XDP_PASS;
 

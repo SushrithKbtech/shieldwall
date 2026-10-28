@@ -1,7 +1,7 @@
 # Live test: ShieldWall on a real Minecraft server
 
 This is not the simulator. A real Minecraft server, a real player bot, and the real
-XDP kernel program, under a real flood, on one Linux host.
+XDP kernel program, under a real flood, on one Linux host. Run by Saran Chekka on Linux.
 
 ## Setup
 
@@ -19,7 +19,7 @@ Two runs, identical except for one switch: **dry-run** (watch only) vs **enforce
 
 | Time | Attack arriving | Kernel dropped | Detector | Classified as |
 |---|---|---|---|---|
-| t+1 | 315,688 /s | 0 (0%) | — | — |
+| t+1 | 315,688 /s | 0 (0%) | - | - |
 | t+2 | 307,470 /s | 0 (0%) | **alert** | CLDAP amplification flood |
 | t+3 | 346,782 /s | 337,476 /s (**97.3%**) | alert | CLDAP amplification flood |
 | t+4 | 467,480 /s | 467,470 /s (**100%**) | alert | CLDAP amplification flood |
@@ -38,17 +38,17 @@ of the flood dropped from then on. The rule it wrote itself: `DROP UDP src port 
 | Attack packets dropped by the kernel | **0** | **5,283,933** |
 | Player bot | stayed connected | stayed connected |
 
-## The honest limitation (state this in the viva)
+## Limitation
 
 The player bot stayed connected in **both** runs, and its ping barely moved (≈10-12 ms).
-That is **not** because blocking did nothing — the kernel counters show it dropped
-5.28 million attack packets. It is because this sandbox has **no link bottleneck**: a
+That is **not** because blocking did nothing: the kernel counters show it dropped
+5.28 million attack packets. It is because this test machine has **no link bottleneck**: a
 veth has effectively unlimited internal bandwidth, the host CPU is fast, and the kernel
 modules for a `tc` rate cap were unavailable, so a volumetric flood could not be made to
 starve the player here.
 
 On a **real small-server uplink** (say 100 Mbps), that same flood fills the pipe and the
-player lags or drops without ShieldWall — and the 100%-drop-in-kernel is exactly what
+player lags or drops without ShieldWall, and the 100%-drop-in-kernel is exactly what
 keeps the link clear. This is the project's known limit restated: a host-side tool proves
 detection and local mitigation honestly; it cannot reproduce a true link-filling flood on
 a single machine. The kernel drop counts are the honest proof that the mechanism works.
@@ -56,6 +56,8 @@ a single machine. The kernel drop counts are the honest proof that the mechanism
 ## Reproduce
 
 ```bash
-# in the harness folder (needs Linux, root, clang, libbpf, bpftool, node, python3-scapy not required)
-sudo python3 live_demo.py        # runs both dry-run and enforce, writes live_results.json
+# needs Linux, root, clang, libbpf, bpftool and node
+make -C bpf
+cd mc-demo && npm install
+sudo python3 live_demo.py        # runs both dry-run and enforce, writes mc-demo/live_results.json
 ```

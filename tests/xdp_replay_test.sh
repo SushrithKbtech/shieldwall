@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Replay a real attack capture through the real XDP program with the live control loop.
 #
-#   sudo bash tests/xdp_replay_test.sh path/to/capture.pcap
+#   sudo bash tests/xdp_replay_test.sh path/to/capture.pcap [analyst]
 #
 # Needs: clang, libbpf-dev, bpftool, python3-scapy, root.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-[ $# -eq 1 ] || { echo "usage: $0 capture.pcap"; exit 1; }
+[ $# -ge 1 ] || { echo "usage: $0 capture.pcap [analyst]"; exit 1; }
 command -v bpftool >/dev/null || { echo "bpftool not found"; exit 1; }
 make -C bpf xdp_filter.o >/dev/null
 
@@ -26,4 +26,4 @@ ip link set sw0 up
 ip netns exec swatk ip addr add 192.168.77.2/24 dev sw1
 ip netns exec swatk ip link set sw1 up
 
-python3 tests/xdp_replay_check.py "$1"
+python3 tests/xdp_replay_check.py "$@"

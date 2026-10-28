@@ -31,5 +31,46 @@
     "capture_packets_dropped": 29205,
     "player_packets_sent": 300,
     "player_packets_dropped": 0
+  },
+  {
+    "capture": "amp.TCP.reflection.SYNACK.pcap",
+    "kernel": "6.18.54.1-microsoft-standard-WSL2",
+    "classified_as": "TCP SYN-ACK reflection flood",
+    "classified_by": "ml",
+    "detect_s": 2,
+    "block_s": 2,
+    "rules": [
+      "RATE-LIMIT TCP SYN-ACK only from unknown sources to 100 pps"
+    ],
+    "capture_packets_sent": 7996,
+    "capture_packets_dropped": 6547,
+    "player_packets_sent": 300,
+    "player_packets_dropped": 0
+  },
+  {
+    "capture": "amp.TCP.reflection.SYNACK.pcap",
+    "kernel": "6.18.54.1-microsoft-standard-WSL2",
+    "mode": "analyst (ML forced unsure)",
+    "sampled_attack_packets": 2000,
+    "proposed": {
+      "action": "rate_limit",
+      "protocol": "tcp",
+      "source_ip": null,
+      "src_port": null,
+      "dst_port": null,
+      "syn_only": false,
+      "synack_only": true,
+      "fragments_only": false,
+      "unknown_sources_only": true,
+      "rate_pps": 100,
+      "reason": "SYN-ACK replies to connections this server never opened"
+    },
+    "verdict": "accepted in dry-run: matches 83% of the attack, 0.00% of normal traffic",
+    "backend": "template",
+    "dry_run_rules": [
+      "RATE-LIMIT TCP SYN-ACK only from unknown sources to 100 pps"
+    ],
+    "capture_packets_dropped": 0,
+    "player_packets_dropped": 0
   }
 ]

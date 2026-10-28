@@ -145,6 +145,7 @@ def replay(path: str, target: str | None = None, attack_at: int = 40, duration: 
     result = {
         "capture": summary,
         "label": incidents[-1]["label"] if incidents else "not detected",
+        "named_by": (on_eng.last_incident or on_eng.incident or {}).get("tier") if incidents else None,
         "rules": rules,
         "with": on,
         "without": {"served_pct": off["served_pct"]},
@@ -176,7 +177,8 @@ def write_results(results: list[dict], out_dir: str, stem: str, title: str, intr
     for r in results:
         c, w = r["capture"], r["with"]
         rows.append(f"| {c['file']} | {c['packets']:,} pkts, {c['native_pps']:,} pps, {c['unique_sources']:,} sources, "
-                    f"{c['fragment_share']:.0%} fragments | {r['label']} | {w['detect_s'] or '-'} s | "
+                    f"{c['fragment_share']:.0%} fragments | {r['label']}{' (ML model)' if r.get('named_by') == 'ml' else ''} | "
+                    f"{w['detect_s'] or '-'} s | "
                     f"{w['mitigate_s'] or '-'} s | {w['attack_dropped_pct']:.1f}% ({w['attack_dropped_after_block_pct']:.1f}%) | "
                     f"{w['legit_dropped_pct']:.3f}% | "
                     f"{r['without']['served_pct']:.1f}% → {w['served_pct']:.1f}% | {w['window']['precision']:.3f} / "

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 
-from .llm import FIELD_GUIDE, _backend, ask_llm
+from .llm import _backend, ask_llm
 from .mitigation import validate_suggestion
 
 SERVICE_PORTS = (25565, 19132)  # the game's own ports: never propose dropping these
@@ -24,16 +24,35 @@ ANALYST_SYSTEM = (
     "You are ShieldWall's Tier 3 analyst. An anomaly fired but no statistical signature and no trained "
     "model could name it, so you must reason from the evidence. Propose exactly ONE narrow mitigation rule "
     "as JSON with these keys: action (drop|rate_limit), protocol (udp|tcp|any), source_ip (or null), "
-    "src_port (or null), dst_port (or null), syn_only (bool), fragments_only (bool), "
+    "src_port (or null), dst_port (or null), syn_only (bool), synack_only (bool), fragments_only (bool), "
     "unknown_sources_only (bool), rate_pps (int or null), reason (string). The controller will test your "
     "rule against real player traffic and reject it if it hits players or misses the attack, so prefer a "
-    "narrow rule: a source port, fragments, SYN-only, a single heavy source, or unknown-sources-only. Never "
-    "drop the game ports 25565/19132. Return only the JSON object."
+    "narrow rule: a source port, fragments, SYN-only, SYN-ACK-only, a single heavy source, or "
+    "unknown-sources-only. Never drop the game ports 25565/19132. Return only the JSON object."
+)
+
+
+# What the traffic profile and the rule fields mean. Added after the first evaluation
+# (results/analyst_eval_prompt_v1.md): without it the model put syn_only on UDP rules,
+# picked UDP for TCP attacks and ignored the SYN-ACK share.
+PROFILE_GUIDE = (
+    "Profile fields: shares are fractions of ALL packets this second (0.5 = half). udp_share and tcp_share say "
+    "which protocol the traffic is; top_source_ports lists the ports packets come FROM, each with its protocol; "
+    "top_destination_ports the ports they go TO on this server (25565 tcp and 19132 udp are the game). "
+    "synack_share = TCP SYN-ACK replies, which a server only receives for connections it opened itself, so a "
+    "high value means TCP reflection. syn_to_ack_ratio above 1 means connection attempts that never complete "
+    "(a SYN flood). top_talkers share = one address's fraction of all packets. "
+    "Rule fields: protocol must be the attack's protocol. src_port matches the port a packet comes FROM "
+    "(reflection floods come from the reflecting service's port). syn_only matches only TCP SYN packets "
+    "without ACK; synack_only matches only TCP SYN-ACK packets; never set either for UDP, and never both. "
+    "fragments_only matches only IP fragments, which carry no ports. unknown_sources_only keeps players "
+    "ShieldWall already trusts passing. Leave a field null (JSON null, not the text \"null\") unless the "
+    "evidence points at it: every field you set must be true of the attack packets, or the rule matches nothing."
 )
 
 
 def _prompt(evidence: list[str], profile: dict) -> str:
-    return (f"{FIELD_GUIDE}\n\nThis anomaly matched no known signature.\n"
+    return (f"{PROFILE_GUIDE}\n\nThis anomaly matched no known signature.\n"
             f"Evidence: {json.dumps(evidence, default=str)}\n"
             f"Traffic at the peak (JSON): {json.dumps(profile, default=str)}\n\n"
             "Propose one rule as JSON.")
@@ -42,29 +61,36 @@ def _prompt(evidence: list[str], profile: dict) -> str:
 def _heuristic(profile: dict) -> dict | None:
     """Evidence -> one candidate rule, used when no LLM backend is available."""
     base = {"action": "drop", "protocol": "any", "source_ip": None, "src_port": None, "dst_port": None,
-            "syn_only": False, "fragments_only": False, "unknown_sources_only": False, "rate_pps": None,
-            "reason": "analyst heuristic"}
+            "syn_only": False, "synack_only": False, "fragments_only": False, "unknown_sources_only": False,
+            "rate_pps": None, "reason": "analyst heuristic"}
     udp_share = profile.get("udp_share", 0.0)
     tt = profile.get("top_talkers") or []
     tsp = profile.get("top_source_ports") or []
 
-    # 1. one source dominates -> drop that address
-    if tt and tt[0].get("share", 0) >= 0.2:
-        return {**base, "action": "drop", "source_ip": tt[0]["ip"],
-                "reason": f"single heavy source {tt[0]['ip']} ({tt[0]['share']:.0%} of traffic)"}
+    # Most specific evidence first. A reflection flood's biggest sender is often a public resolver the server
+    # itself relies on (8.8.8.8 in a real DNS capture), so the reflected port wins over "drop the top sender".
+    # 1. SYN-ACKs this server never asked for: TCP reflection (players never send SYN-ACK)
+    if profile.get("synack_share", 0) >= 0.3:
+        return {**base, "action": "rate_limit", "protocol": "tcp", "synack_only": True,
+                "unknown_sources_only": True, "rate_pps": 100,
+                "reason": "SYN-ACK replies to connections this server never opened"}
     # 2. a dominant source port the server never uses -> reflection off that service
     for e in tsp:
         if e.get("port") and e["port"] not in SERVICE_PORTS and e.get("share", 0) >= 0.25:
-            proto = "udp" if udp_share >= 0.5 else "tcp"
+            proto = e.get("protocol") or ("udp" if udp_share >= 0.5 else "tcp")
             return {**base, "action": "drop", "protocol": proto, "src_port": e["port"],
                     "unknown_sources_only": True,
                     "reason": f"reflected replies from {proto.upper()} source port {e['port']}"}
-    # 3. handshake-less SYN storm
+    # 3. one source dominates -> drop that address
+    if tt and tt[0].get("share", 0) >= 0.2:
+        return {**base, "action": "drop", "source_ip": tt[0]["ip"],
+                "reason": f"single heavy source {tt[0]['ip']} ({tt[0]['share']:.0%} of traffic)"}
+    # 4. handshake-less SYN storm
     if profile.get("syn_to_ack_ratio", 0) > 0.5:
         return {**base, "action": "rate_limit", "protocol": "tcp", "syn_only": True,
                 "unknown_sources_only": True, "rate_pps": 200,
                 "reason": "many half-open connections from unknown sources"}
-    # 4. last resort: rate-limit everything from never-seen sources (trusted players keep passing)
+    # 5. last resort: rate-limit everything from never-seen sources (trusted players keep passing)
     return {**base, "action": "rate_limit", "protocol": "any", "unknown_sources_only": True,
             "rate_pps": 1000, "reason": "rate-limit unknown sources while the anomaly is unnamed"}
 

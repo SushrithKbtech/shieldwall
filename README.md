@@ -3,7 +3,7 @@
 **An automatic, self-explaining bouncer for small servers.**
 ShieldWall watches all traffic to one server, detects a DDoS attack in about 2 seconds, drops the attack traffic in the Linux kernel while real players keep playing, and explains in plain English what happened.
 
-`C (eBPF/XDP) drops · Python decides · the LLM explains and suggests · SQLite remembers`
+`C (eBPF/XDP) drops · Python decides (statistics, fingerprints, a trained ML model) · the LLM explains and suggests · SQLite remembers`
 
 ![ShieldWall live monitor during a CLDAP amplification attack](docs/tab_live.png)
 
@@ -11,14 +11,14 @@ The dashboard has three tabs, written so anyone can follow along:
 
 | Live monitor | How it works | Results |
 |---|---|---|
-| Plain-English status ("Under attack: CLDAP amplification flood. ShieldWall is blocking it."), a 5-step tracker, the three alarms, what is being blocked, a timeline, the AI assistant and incident reports | Each model explained with a question, an everyday analogy and its live value | Real attack data, simulated-lab accuracy, precision, recall and F1, kernel test and LLM evaluation |
+| Plain-English status ("Under attack: CLDAP amplification flood. ShieldWall is blocking it."), a 5-step tracker, the three alarms, what is being blocked, a timeline, the AI assistant and incident reports | Each model explained with a question, an everyday analogy and its live value, including which tier named the attack | Real attack data, simulated-lab accuracy, precision, recall and F1, the ML model and AI analyst, kernel tests and LLM evaluation |
 | ![Live](docs/tab_live.png) | ![How it works](docs/tab_how.png) | ![Results](docs/tab_results.png) |
 
 ## Highlights
 
 - **Kernel-speed blocking.** An eBPF/XDP program drops attack packets inside the NIC driver, before the kernel network stack does any work. Tested on a real Linux kernel.
-- **No fixed thresholds, no training.** Three statistical detectors vote (EWMA z-score, CUSUM, entropy) and learn each server's normal traffic live, with persistence and absolute-floor guards against false alarms.
-- **Knows what hit you.** Fingerprints DNS, NTP, CLDAP and Memcached amplification (including multi-vector attacks), SYN floods, UDP floods and single-host floods, and tells a real rush of players apart from an attack.
+- **No fixed thresholds.** Three statistical detectors vote (EWMA z-score, CUSUM, entropy) and learn each server's normal traffic live, with no training data, plus persistence and absolute-floor guards against false alarms.
+- **Knows what hit you, in three tiers.** Fingerprints name DNS, NTP, CLDAP and Memcached amplification (including multi-vector attacks), SYN floods, UDP floods and single-host floods in microseconds, and tell a real rush of players apart from an attack. When no fingerprint fits, a trained ML model (gradient-boosted trees) names it: it caught the real SYN-ACK reflection attack the fingerprints missed. When nobody can name it, an AI analyst proposes one rule for the controller to test.
 - **Handles what real attacks look like.** IP fragments with no ports, several reflection vectors at once, and one machine sending most of the traffic (Count-Min Sketch heavy hitter), all found by replaying real attack data.
 - **Safe by design.** Every rule expires, an allowlist is never dropped, the rule count is capped, and a dry-run mode logs without dropping.
 - **Grows with your server.** A sustained legitimate surge becomes the new normal.
@@ -31,7 +31,7 @@ Three kinds of evidence, labelled clearly:
 | Evidence | What it is |
 |---|---|
 | **Real attack data** | Public captures of real-world attacks and the CIC-DDoS2019 dataset, which we did not create, replayed through the engine |
-| **Real Linux kernel** | The XDP program loaded on a Linux interface, with real packets sent through it |
+| **Real Linux kernel** | The XDP program loaded on a Linux interface, with real packets sent through it, and a live test on a real Minecraft server |
 | **Simulated lab** | Our traffic generator, where the right answer is known for every second. Players, the game server's capacity and the upstream provider are modelled here |
 
 ### 1. Real attack data
@@ -73,6 +73,10 @@ Thresholds and rules above were adjusted using those six files, so they are not 
 
 **5 of 8 were caught.** SNMP and ISAKMP amplification use ports that aren't on ShieldWall's list, and the generic UDP-flood rule still stopped them. Two weren't flagged because they're below the alert floor (148 and 927 packets/s, which don't hurt the server: players stayed at 100%). **One is a real miss:** TCP SYN-ACK reflection at 54k pps from 7,055 sources set off the alarms, but matched no fingerprint, and ShieldWall deliberately doesn't block traffic it can't classify. That is the main gap the held-out test found; the three CIC-DDoS2019 files were all single-host floods again.
 
+#### After the held-out test: the trained ML tier
+
+That miss is why ShieldWall gained a trained ML tier and a SYN-ACK rule in the kernel. Rerun on the same eight files with the current code ([results/heldout_rerun.md](results/heldout_rerun.md), [results/heldout_rerun_cic.md](results/heldout_rerun_cic.md)), the SYN-ACK reflection capture is now detected in 2 s, **named by the ML model** (no fingerprint matches it), and gets `RATE-LIMIT TCP SYN-ACK only from unknown sources to 100 pps`, which dropped **77.4%** of the whole attack: essentially all of its SYN-ACKs, since the other 17% of the capture is RSTs, UDP and pings. Players stayed at 100% and no real traffic was dropped. The other seven files give exactly the same numbers as before. The model never trained on this capture, but the SYN-ACK rule was built after we saw the miss, so this is reported separately rather than as a blind result. The same capture through the real kernel is in section 2.
+
 **What CIC-DDoS2019 can and can't test.** Every CIC attack comes from one machine, the "NTP" and "LDAP" attacks don't use ports 123 and 389, and the "Syn" flows rebuild with no SYN flags. So CIC tests the single-host rule; only the public captures test the attack-type fingerprints. Several CIC attacks were also too small to hurt the modelled server (players at 100% with or without ShieldWall).
 
 ### 2. Real Linux kernel
@@ -83,8 +87,11 @@ Thresholds and rules above were adjusted using those six files, so they are not 
 |---|---|---|---|---|---|---|
 | amp.UDP.DNSANY.pcap | DNS amplification flood | 2 s | 2 s | **11,820 / 11,998** (98.5%) | 0 / 300 | DROP UDP src port 53; DROP UDP fragments from unknown sources |
 | amp.UDP.memcached.ntp.cldap.pcap | multi-vector amplification (Memcached, NTP, DNS) | 2 s | 2 s | **29,205 / 29,462** (99.1%) | 0 / 300 | DROP UDP src port 11211; DROP UDP src port 123; DROP UDP src port 53; DROP UDP src port 389; DROP UDP fragments from unknown sources |
+| amp.TCP.reflection.SYNACK.pcap (held-out) | TCP SYN-ACK reflection flood, **named by the ML model** | 2 s | 2 s | **6,547 / 7,996** (all but 104 of its 6,651 SYN-ACKs) | 0 / 300 | RATE-LIMIT TCP SYN-ACK only from unknown sources to 100 pps |
 
-The packets that got through are the capture's handful of non-amplification packets (ICMP, a few others).
+The packets that got through are the captures' non-attack packets: ICMP and a few others in the amplification captures, and the RSTs, UDP and pings that make up 17% of the SYN-ACK capture (none of which threaten the server at that rate).
+
+**The AI analyst on the live path.** With the ML model forced to be unsure, the same SYN-ACK capture went to the Tier 3 analyst inside the live loop. It worked from 2,000 packets sampled off the interface with an AF_PACKET socket, proposed `RATE-LIMIT TCP SYN-ACK only from unknown sources to 100 pps`, and the controller accepted it in dry-run: it matched 83% of the attack and 0% of normal traffic, and the kernel dropped nothing because of it. Run with `sudo bash tests/xdp_replay_test.sh capture.pcap analyst`.
 
 **Kernel feature test.** 
 [tests/xdp_kernel_test.sh](tests/xdp_kernel_test.sh) loads the XDP program on a veth interface (Linux 6.18, WSL2), sends crafted packets with scapy and checks each kernel feature against the real BPF maps:
@@ -96,28 +103,31 @@ with rule     : kernel dropped 3000 attack pkts, passed 400 player pkts, rule hi
 fragments     : kernel saw 1000 fragments, dropped 1000
 heavy hitter  : blocklist dropped 2000 packets from 45.30.0.9, passed 300 others
 icmp flood    : blocklist dropped 500 of 500 pings from 45.30.0.9
-shared address: rate limit passed 152 of 2000 packets (fair share ~100/s plus burst)
+shared address: rate limit passed 156 of 2000 packets (fair share ~100/s plus burst)
 expiry        : 0 of 200 packets dropped after the entry expired (should be 0)
+syn-ack flood : kernel counted 3000 SYN-ACKs, dropped 2817 of 3000; dropped 0 of 400 player SYN/ACK packets
 dry-run       : dropped 0 (should be 0)
 KERNEL TEST PASSED
 ```
 
 The blocklist covers every protocol (it's checked before the TCP/UDP parsing), and its entries expire inside the kernel, so an address can't stay blocked if the controller crashes.
 
-The program passes the kernel verifier and is JIT-compiled.
+The program passes the kernel verifier and is JIT-compiled. The SYN-ACK rule is a rate limit (100 per second), not a drop, so the server's own outgoing connections still get their replies; players send SYN and ACK, never SYN-ACK, so it can't touch them.
+
+**Live test on a real Minecraft server** (run by Saran Chekka on Linux, [results/live_minecraft.md](results/live_minecraft.md), harness in [mc-demo/](mc-demo/)). A real Minecraft server (flying-squid), a real player bot (mineflayer) connected and playing, the real XDP program, and a real CLDAP flood from another network namespace at up to ~490,000 packets/s. ShieldWall named it in about 2 seconds and wrote `DROP UDP src port 389`; from the third second the kernel dropped 97-100% of the flood, **5,283,933** attack packets in enforce mode against 0 in dry-run. The player bot stayed connected in both runs: one machine has no internet link for a flood to fill, so the kernel counters are the evidence, not the player's ping.
 
 ### 3. Simulated lab
 
 **200 randomized trials**, half attacks (CLDAP, DNS, NTP, SYN, UDP at 3k-300k pps, random timing and ramp) and half not (flash crowds of real players, quiet traffic). Full report: [results/metrics.md](results/metrics.md).
 
-| Level | Accuracy | Precision | Recall | F1 |
-|---|---|---|---|---|
-| Per 1-second window | 98.668% | **100%** | 94.437% | 0.971 |
-| Per packet dropped | 97.209% | **99.991%** | 96.642% | 0.983 |
-| Per attack (incident) | 99.000% | **100%** | 98.131% | 0.991 |
+| Level | Accuracy | Precision | Recall | F1 | Fingerprints only (ML tier off) |
+|---|---|---|---|---|---|
+| Per 1-second window | 99.392% | **100%** | 97.463% | 0.987 | F1 0.971 (recall 94.437%) |
+| Per packet dropped | 97.359% | **99.990%** | 96.824% | 0.984 | F1 0.983 |
+| Per attack (incident) | 100% | **100%** | 100% | 1.000 | F1 0.991 (105 of 107 caught) |
 
-- **0 of 93** non-attacks (flash crowds and quiet runs) were wrongly mitigated; 0.042% of real traffic was dropped across all trials (new players stay untrusted until seen in 5 calm seconds, so a few get rate-limited during attacks).
-- 100% attack-type accuracy on caught attacks; median time to detect 2 s; 105/107 attacks caught (the misses were the weakest, close to normal volume).
+- **0 of 93** non-attacks (flash crowds and quiet runs) were wrongly mitigated, with or without the ML tier; 0.045% of real traffic was dropped across all trials (new players stay untrusted until seen in 5 calm seconds, so a few get rate-limited during attacks).
+- 100% attack-type accuracy on caught attacks; median time to detect 2 s; **107 of 107** attacks caught. With the ML tier off (`SHIELDWALL_ML=off`, [results/metrics_no_ml.md](results/metrics_no_ml.md)) the same seeded trials give exactly the old numbers: the two weakest attacks, close to normal volume, matched no fingerprint, and the ML tier names them.
 
 **What the metrics mean.** *Precision*: when ShieldWall says "attack", how often it really is one (low precision means blocking real players). *Recall*: of all real attack time, how much it caught. *F1*: the balance of the two. Per-second recall is below 100% by design: the 2-second persistence guard counts the first seconds of every attack as misses, and that guard is what keeps false alarms at zero.
 
@@ -131,7 +141,23 @@ The program passes the kernel verifier and is JIT-compiled.
 | S3 Legitimate spike, no attack (flash crowd) | legitimate traffic surge | 100.0% | **100.0%** | 3 s | n/a |
 | S4 Attack bigger than the link (25 Gbps into 10 Gbps) | CLDAP amplification flood | 2.8% | **95.7%** (via simulated provider) | 2 s | 4 s |
 
-### 4. The LLM: is it correct, fast and cheap?
+### 4. The trained ML model (Tier 2)
+
+`shieldwall ml-train` trains a gradient-boosted tree model (scikit-learn `HistGradientBoostingClassifier`) on 1,952 labelled simulated seconds and scores it on 488 seconds from seeds it never saw, then on every real attack above. The shipped model never trained on real traffic, so all 14 real attack files are unseen data for it. Full report: [results/ml_eval.md](results/ml_eval.md).
+
+| | Fingerprints | Trained ML model |
+|---|---|---|
+| Simulated seconds: attack or not, right | 91.0% | **100%** |
+| Simulated seconds: exact attack family (11 classes) | misses SYN-ACK reflection entirely | **100%** (macro-F1 1.000) |
+| Real attack seconds (232 flagged seconds, 13 real attacks): right family | 90% | **98%** (58% with at least 60% confidence) |
+| Real SYN-ACK reflection capture | 0% (no fingerprint) | **100%**, at 100% confidence |
+| Time per decision | 24 µs | 50 ms (only runs when no fingerprint matched) |
+
+**How to read this.** Simulated families separate cleanly, so the 100% is an upper bound. On real traffic the model gets the family right almost every time, but is often unsure: the cascade only acts on answers that are at least 60% sure, and the unsure ones (DNS, multi-vector, SNMP, ISAKMP) are attacks the fingerprints name first anyway. Where it matters, on the SYN-ACK reflection attack nothing else could name, it is certain. It misses one low-rate random UDP flood (927 packets/s from 11 sources) that the fingerprints miss too.
+
+**An experiment that didn't help.** We also trained a second model on the simulated seconds plus the six development captures. On the held-out captures it named 84% of seconds, against 97% for the simulator-only model: six real attacks were too few and it over-fitted to them. So the shipped model is simulator-only. That choice was made after seeing the held-out scores, which is why both numbers are in the report.
+
+### 5. The LLM: is it correct, fast and cheap?
 
 `shieldwall llm-eval` sends the exact production prompts for real engine incidents to gpt-4o-mini and scores the answers automatically. Full report: [results/llm_eval.md](results/llm_eval.md).
 
@@ -148,6 +174,18 @@ The program passes the kernel verifier and is JIT-compiled.
 
 **What changed, based on what the evaluation found.** Prompt v1 over-claimed ("98% got through *without any impact*"), once called a UDP flood "not malicious", and kept suggesting blocks on single reflector addresses that each sent ~0.1% of a distributed attack, which the controller rejected. The final prompt tells the model to state numbers exactly, gives it each top sender's share of the traffic (source blocks only above 20%), and adds plain status fields (`incident_over`, `blocking_now`) after a live run showed it confusing "not over yet" with "not blocked". The controller also gained a rule the evaluation motivated: no drop rules on the game's own ports, only rate limits. The judge is the same model (gpt-4o-mini) prompted as a strict fact-checker, so it is a check, not proof. The prompt was tuned on the first set of incidents; the held-out column uses new incidents (different seeds) it never saw. Reports: [v1](results/llm_eval_prompt_v1.md), [final](results/llm_eval.md), [held-out](results/llm_eval_heldout.md).
 
+### 6. The AI analyst (Tier 3): gpt-4o-mini against a simple heuristic
+
+`shieldwall analyst-eval` hands the analyst 14 attacks (5 simulated families, 8 real captures, 2 CIC-DDoS2019 files; one capture is below the alert floor) with the fingerprints and the ML model both made to come up empty, so it has only the traffic evidence. The same incident goes to gpt-4o-mini and to the offline heuristic, and every proposed rule goes through the controller's checks. Full report: [results/analyst_eval.md](results/analyst_eval.md).
+
+| | Rules accepted by the controller | Attack matched by accepted rules (mean) | Worst player traffic hit by an accepted rule | Latency | Cost per proposal |
+|---|---|---|---|---|---|
+| Offline heuristic | **12 / 14** | 82% | 0.19% | instant | free |
+| gpt-4o-mini, prompt v1 | 8 / 14 | 70% | 0.19% | 2.2 s | $0.00018 |
+| gpt-4o-mini, final prompt | 9 / 14 | 76% | 0.00% | 2.2 s | $0.00021 |
+
+**What this shows.** The first prompt gave gpt-4o-mini the traffic profile without saying what the fields mean: it put a SYN-only flag on UDP rules, picked UDP for TCP floods, ignored the SYN-ACK share and wrote the text "null" for empty fields. A field guide fixed most of that (8 to 9 accepted). The rules it still gets wrong are too narrow: one source port or one address out of a distributed attack, or SYN where the attack is SYN-ACK. The controller rejected every bad proposal, and accepted ones only log in dry-run. That is the case for keeping the LLM advisory: on this task a short hand-written heuristic is better, and the safety gate is what makes either one safe. Both prompts were scored on the same incidents, so the final row is not a held-out number.
+
 ## How it works
 
 ```
@@ -160,8 +198,10 @@ The program passes the kernel verifier and is JIT-compiled.
                            |  counter maps     ^  rule maps + blocklist
                            v  (read)           |  (write)
   USERSPACE (Python)  +-------------------------------------+
-  control plane       |  featurise -> detect -> classify ->  |  once a second
-                      |  mitigate (expiring rules, safety)   |
+  control plane       |  featurise -> detect (3 alarms) ->   |  once a second
+                      |  name it: fingerprints -> ML model   |
+                      |           -> AI analyst (dry-run)    |
+                      |  -> mitigate (expiring rules, safety)|
                       +-------------------------------------+
                            |                    |
                     LLM assistant          SQLite event log -> dashboard
@@ -189,7 +229,16 @@ An alert needs 2 of 3 votes, must persist for 2 windows, and must clear an absol
 | HyperLogLog | how many unique sources? | 1 KB, ~3% error |
 | Bloom filter | have I seen this source before? | ~240 KB for 200k sources |
 
-### 4. Classify by fingerprint ([classifier.py](controlplane/shieldwall/classifier.py))
+### 4. Name the attack: three tiers, cheapest first ([cascade.py](controlplane/shieldwall/cascade.py))
+
+Once the alarms confirm an anomaly, [cascade.py](controlplane/shieldwall/cascade.py) asks each tier in turn and stops at the first confident answer. The same cascade runs in the simulator engine and in the real-kernel live loop.
+
+| Tier | What it is | When it answers | Cost per decision |
+|---|---|---|---|
+| Fingerprints ([classifier.py](controlplane/shieldwall/classifier.py)) | hand-written signatures, below | a known signature matches, or it is clearly real players | microseconds |
+| Trained ML model ([ml.py](controlplane/shieldwall/ml.py), [ml_train.py](controlplane/shieldwall/ml_train.py)) | gradient-boosted trees over 20 per-second features | no fingerprint matched and the model is at least 60% sure | milliseconds |
+| AI analyst ([analyst.py](controlplane/shieldwall/analyst.py)) | gpt-4o-mini (or an offline heuristic) proposes one narrow rule | nobody could name it | about a second, in the background |
+
 | Attack | Fingerprint |
 |---|---|
 | DNS / NTP / CLDAP / Memcached amplification | UDP arriving *from* service ports the server never uses (one or several at once), plus fragments of oversized replies |
@@ -198,34 +247,40 @@ An alert needs 2 of 3 votes, must persist for 2 windows, and must clear an absol
 | UDP flood | UDP share jumps, mostly never-seen sources |
 | Legit surge | volume up, but handshakes complete and the protocol mix is normal |
 
+**The ML model** uses only features the real kernel maps also provide (shares, ratios, entropy, packet size, SYN-ACK share, which reflection ports are present), so the same model runs on the live path. It learns from labelled simulated seconds only, including attack families no fingerprint covers (SYN-ACK reflection, Memcached and SSDP amplification), so every real capture it is scored on is new to it. Without scikit-learn or a model file, the cascade falls back to the fingerprints alone.
+
+**The analyst** gets the evidence and the traffic profile and proposes exactly one rule. The controller tests it like any LLM suggestion (below) and installs it only in dry-run, so it can never block anything by itself. Under `shieldwall live` it works from packets sampled off the interface with an AF_PACKET socket.
+
 ### 5. Mitigation ([mitigation.py](controlplane/shieldwall/mitigation.py))
-A signature drop per attack vector, a fragment rule, a heavy-hitter block, or a token-bucket rate limit for unknown sources (sources that completed handshakes in calm times keep passing). Every rule expires after 60 s unless it still matches traffic. If the link itself is full for 3 windows, the drop rule is escalated upstream as BGP FlowSpec. **This escalation is simulated**: the simulator plays the provider; there is no BGP speaker in this build.
+A signature drop per attack vector, a fragment rule, a heavy-hitter block, a SYN-ACK rule for TCP reflection (players send SYN and ACK, never SYN-ACK, so it can't touch them), or a token-bucket rate limit for unknown sources (sources that completed handshakes in calm times keep passing). Every rule expires after 60 s unless it still matches traffic. If the link itself is full for 3 windows, the drop rule is escalated upstream as BGP FlowSpec. **This escalation is simulated**: the simulator plays the provider; there is no BGP speaker in this build.
 
 ### 6. LLM layer ([llm.py](controlplane/shieldwall/llm.py), [llm_report.py](controlplane/shieldwall/llm_report.py))
 Runs off the blocking path. It receives only verified facts, with the meaning of each field spelled out. It explains incidents, answers questions from the SQLite log, and writes structured post-incident reports (strict JSON schema) with up to three suggested rules. Each suggestion is validated by the controller: it must be specific, hit under 1% of recent normal traffic, match at least 5% of the attack, and not duplicate an existing rule. Accepted rules start in dry-run. Backends: OpenAI gpt-4o-mini (default when `OPENAI_API_KEY` is set), Claude, Ollama, or a built-in template; any error falls back to the template.
 
 ## Run it
 
-Needs Python 3.10+. The core has no dependencies.
+Needs Python 3.10+. The core has no dependencies; the ML tier needs scikit-learn 1.7.2 (the version the shipped model was trained with).
 
 ```bash
 git clone https://github.com/SushrithKbtech/shieldwall.git
 cd shieldwall
-pip install -e .
+pip install -e ".[ml]"           # or `pip install -e .` for the core without the ML tier
 ```
 
 | Command | What it does |
 |---|---|
 | `shieldwall dashboard` | live dashboard at http://127.0.0.1:8000 |
-| `shieldwall demo --attack cldap` | one attack, step by step in the terminal |
+| `shieldwall demo --attack cldap` | one attack, step by step in the terminal (`--attack synack` shows the ML tier) |
 | `shieldwall replay capture.pcap ...` | replay real attack captures (.pcap / .pcapng) -> `results/replay.md` |
 | `shieldwall replay-cic archive.zip --member 01-12/Syn.csv` | replay CIC-DDoS2019 flow records straight from the dataset zip -> `results/replay_cic.md` |
+| `shieldwall ml-train [--captures DIR --heldout DIR --cic archive.zip ...]` | train and score the ML tier -> `results/ml_model.joblib`, `results/ml_eval.md` |
+| `shieldwall analyst-eval --captures DIR` | Tier 3 analyst: gpt-4o-mini vs heuristic rule proposals -> `results/analyst_eval.md` |
 | `shieldwall eval` | four simulated scenarios -> `results/results.md` |
 | `shieldwall metrics` | accuracy / precision / recall / F1 over 200 simulated trials -> `results/metrics.md` |
 | `shieldwall llm-eval` | LLM grounding, faithfulness, suggestions, latency and cost (needs `OPENAI_API_KEY`) |
-| `pytest -q` | unit, replay and end-to-end tests (`pip install pytest`) |
+| `pytest -q` | unit, cascade, analyst, replay and end-to-end tests (`pip install pytest`) |
 
-Add `--report` to `replay` / `replay-cic` for an LLM incident report per attack. For the LLM: `pip install openai` and set `OPENAI_API_KEY`.
+Add `--report` to `replay` / `replay-cic` for an LLM incident report per attack. For the LLM: `pip install openai` and set `OPENAI_API_KEY`. Set `SHIELDWALL_ML=off` to run without the ML tier.
 
 ### On Linux with the real XDP program
 
@@ -233,9 +288,12 @@ Add `--report` to `replay` / `replay-cic` for an LLM incident report per attack.
 sudo apt install clang llvm libbpf-dev linux-tools-generic python3-scapy
 make -C bpf
 sudo bash tests/xdp_kernel_test.sh                 # kernel test on a veth pair
+sudo bash tests/xdp_replay_test.sh capture.pcap    # a real capture through the real XDP program
 sudo shieldwall live --iface eth0 --dry-run        # protect a real interface, log only
 sudo shieldwall live --iface eth0                  # enforce
 ```
+
+The live Minecraft test (a real game server, a real player bot and a real flood) is in [mc-demo/](mc-demo/); see [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md).
 
 ## Repo layout
 
@@ -246,8 +304,11 @@ controlplane/shieldwall/
   features.py                 counters -> features (rates, ratios, entropy, fragments, heavy hitter)
   detectors.py                EWMA z-score, CUSUM, entropy vote, re-baselining
   classifier.py               attack fingerprints, legit-surge check
+  ml.py, ml_train.py          trained ML tier: features, model wrapper, training and evaluation
+  cascade.py                  fingerprints -> ML model -> AI analyst routing
+  analyst.py, analyst_eval.py AI analyst for anomalies nobody can name, and its evaluation
   mitigation.py               expiring rules, safety, escalation, LLM-suggestion validator
-  bpf_dataplane.py            live loader for the real XDP maps (Linux)
+  bpf_dataplane.py            live loader for the real XDP maps, packet sampler (Linux)
   pcap.py, replay.py          real capture reader and replay
   cic.py                      CIC-DDoS2019 flow-record replay
   simulator.py                lab traffic generator: players, attacks, link, server
@@ -257,9 +318,10 @@ controlplane/shieldwall/
   server.py, ../dashboard/    live dashboard
   evaluate.py, metrics.py     simulated scenarios, accuracy/precision/recall/F1
   llm_eval.py                 LLM evaluation (grounding, LLM-as-judge, suggestions, cost)
-tests/                        unit, replay, end-to-end and kernel tests
-results/                      latest results (Markdown + JSON)
-docs/                         presentation script and slides (.pptx and .pdf)
+tests/                        unit, cascade, replay, end-to-end and kernel tests
+results/                      latest results (Markdown + JSON) and the trained model
+mc-demo/                      live Minecraft test: real server, real player bot, real flood
+docs/                         presentation script, demo runbook and slides (.pptx and .pdf)
 ```
 
 ## Known limits
@@ -267,6 +329,8 @@ docs/                         presentation script and slides (.pptx and .pdf)
 - **Upstream escalation is simulated.** Floods bigger than the uplink need a provider that accepts FlowSpec; the simulator plays that provider.
 - **The players and the game server are modelled** in the simulated lab and the replays (the server is a 60k packets/s capacity). The attack traffic in the replays is real.
 - **CIC-DDoS2019 is flow records, not packets.** Packets are rebuilt from the flows; spacing inside a flow is approximated.
+- **The ML tier learned from simulated traffic.** On real captures it names the right family 98% of the time but is at least 60% sure only 58% of the time, and the cascade ignores answers below that bar. More labelled real attacks would help; six were too few (section 4).
+- **The analyst's LLM proposals are often too narrow** (9 of 14 accepted against 12 for the heuristic). The controller's checks catch them, and accepted rules only run in dry-run.
 - **IPv4 only**; IPv6 traffic is passed through untouched. HTTP (layer 7) floods are not classified.
 - **No throughput benchmark yet.** Measuring packets per second per core needs a Linux machine or VM whose network driver supports native XDP (most cloud VMs do); it hasn't been run.
 - **The live loader reads maps through `bpftool`**, fine up to tens of thousands of sources; a libbpf reader would be needed for much larger botnets.
@@ -284,20 +348,3 @@ All attack traffic is replayed or generated inside an isolated lab with no route
 | Sushrith Kandagatla | 1RVU23CSE489 |
 | Tamish Sridatta Billa | 1RVU23CSE498 |
 
-## v2 additions (three-tier detection + ML + LLM analyst)
-
-This version adds a trained ML classifier and an LLM analyst on top of the original engine:
-
-- **Tier 1 — statistics** (EWMA/CUSUM/entropy vote): the existing detector.
-- **Tier 2 — ML classifier** (`controlplane/shieldwall/ml.py`, trained by `ml_train.py`): names attack families including ones the hand-written fingerprints miss (e.g. SYN-ACK reflection). See `results/ml_eval.md`.
-- **Tier 3 — LLM analyst** (`controlplane/shieldwall/analyst.py`): investigates residual anomalies and proposes one rule, which the controller validates and installs in dry-run. Works offline; a real API key swaps in.
-
-The cascade lives in `controlplane/shieldwall/cascade.py` and is wired into both the simulator engine and the real-kernel live loop.
-
-**Live Minecraft test:** `results/live_minecraft.md` + the `mc-demo/` harness. Quick start in `docs/DEMO_RUNBOOK.md`.
-
-```bash
-pip install -e . scikit-learn joblib
-python -m shieldwall.ml_train     # trains results/ml_model.joblib
-pytest -q                         # 26 tests
-```

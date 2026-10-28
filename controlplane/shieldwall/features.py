@@ -29,7 +29,7 @@ class Featurizer:
         self.seen = BloomFilter(n=200_000, fp_rate=0.01)
 
     def featurize(self, win: Window) -> Features:
-        pps = bps = syn = ack = udp = amp = frag = 0.0
+        pps = bps = syn = ack = synack = udp = amp = frag = 0.0
         amp_by_port: dict[int, float] = defaultdict(float)
         by_src: dict[int, float] = defaultdict(float)
         by_dport: dict[int, float] = defaultdict(float)
@@ -52,6 +52,8 @@ class Featurizer:
                 syn += w
             elif p.flags & ACK:
                 ack += w
+                if p.flags & SYN:
+                    synack += w
             by_src[p.src] += w
             by_dport[p.dport] += w
 
@@ -92,6 +94,7 @@ class Featurizer:
             amp_ports=amp_ports,
             amp_ports_seen=amp_ports_seen,
             top_src_to_service=top_service / top_total if top_total else 0.0,
+            synack_pps=synack,
         )
 
     def learn(self, win: Window) -> None:

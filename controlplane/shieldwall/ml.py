@@ -15,10 +15,12 @@ from dataclasses import dataclass
 from .models import Features
 
 # The numeric feature vector. Deliberately mostly scale-invariant (shares, ratios,
-# entropy) so the model learns attack *shape*, not just "lots of packets".
+# entropy) so the model learns attack *shape*, not just "lots of packets". Only
+# features the real kernel maps also provide: the XDP program does not count
+# destination ports, so destination-port entropy is left out.
 FEATURE_NAMES = [
     "log_pps", "log_bps", "udp_share", "log_syn_ack", "amp_share", "frag_share",
-    "new_source_share", "src_entropy", "dport_entropy", "top_share",
+    "new_source_share", "src_entropy", "synack_share", "top_share",
     "log_unique", "syn_share", "ack_share", "n_amp_ports",
     "avg_bytes_log",            # mean packet size: NTP replies are small, DNS/CLDAP large
     "amp53", "amp123", "amp389", "amp1900", "amp11211",  # which reflection port is present
@@ -41,7 +43,7 @@ def feat_vector(f: Features) -> list[float]:
         f.frag_share,
         f.new_source_share,
         f.src_entropy,
-        f.dport_entropy,
+        (f.synack_pps / pps) if pps else 0.0,
         f.top_share,
         math.log1p(max(0, f.unique_sources)),
         (f.syn_pps / pps) if pps else 0.0,

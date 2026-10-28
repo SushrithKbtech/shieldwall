@@ -13,6 +13,8 @@ dependencies = []
 [project.optional-dependencies]
 openai = ["openai"]
 claude = ["anthropic"]
+# results/ml_model.joblib was saved with these versions; a model pickle is only safe to load with the same ones
+ml = ["scikit-learn==1.7.2", "numpy>=2", "joblib"]
 dev = ["pytest"]
 
 [project.scripts]

@@ -31,7 +31,7 @@ def _pool(rng: random.Random, n: int, first_octets: tuple[int, ...]) -> list[int
 
 @dataclass
 class AttackSpec:
-    kind: str                 # cldap | dns | ntp | syn | udp | flash_crowd
+    kind: str                 # cldap | dns | ntp | syn | synack | udp | flash_crowd
     start: int
     end: int | None = None    # None = until stopped
     pps: float = 200_000
@@ -130,6 +130,9 @@ class TrafficSim:
         if kind == "udp":
             return Packet(self._next_src(kind, self.botnet), r.randint(1024, 65535), r.randint(1, 65535), UDP, 0,
                           r.randint(512, 1024), legit=False)
+        if kind == "synack":  # TCP reflection: web/ssh servers answer spoofed SYNs with SYN-ACKs aimed at us
+            return Packet(self._next_src(kind, self.botnet), r.choice((80, 443, 22, 3389, 8080)),
+                          r.randint(1024, 65535), TCP, SYN | ACK, 60, legit=False)
         raise ValueError(kind)
 
     def _class(self, n_pkts: float, gen, k_max: int | None = None) -> list[Packet]:
