@@ -3,7 +3,11 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 *.db
+*.db-journal
 bpf/*.o
 .venv/
 .claude/
-*.db-journal
+world/
+mc-demo/node_modules/
+mc-demo/world/
+mc-demo/live_results.json

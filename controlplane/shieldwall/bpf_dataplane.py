@@ -14,7 +14,7 @@ import subprocess
 import time
 from collections import defaultdict
 
-from .classifier import Classifier
+from .cascade import CascadeClassifier
 from .detectors import Detector
 from .features import entropy
 from .mitigation import MitigationConfig, MitigationController
@@ -191,7 +191,8 @@ class LiveLoop:
         from .engine import TRUST_AFTER
 
         self.dp, self.cfg, self.trust_after = dp, cfg, TRUST_AFTER
-        self.det, self.cls, self.ctl = Detector(), Classifier(), MitigationController(cfg)
+        # Tier 2 (ML) + Tier 1 (stats) now run on the real kernel path too.
+        self.det, self.cls, self.ctl = Detector(), CascadeClassifier(), MitigationController(cfg)
         self.seen = BloomFilter(200_000)
         self.calm_seen: dict[int, int] = {}
 

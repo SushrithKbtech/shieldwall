@@ -283,3 +283,21 @@ All attack traffic is replayed or generated inside an isolated lab with no route
 | Saran Chekka | 1RVU23CSE411 |
 | Sushrith Kandagatla | 1RVU23CSE489 |
 | Tamish Sridatta Billa | 1RVU23CSE498 |
+
+## v2 additions (three-tier detection + ML + LLM analyst)
+
+This version adds a trained ML classifier and an LLM analyst on top of the original engine:
+
+- **Tier 1 — statistics** (EWMA/CUSUM/entropy vote): the existing detector.
+- **Tier 2 — ML classifier** (`controlplane/shieldwall/ml.py`, trained by `ml_train.py`): names attack families including ones the hand-written fingerprints miss (e.g. SYN-ACK reflection). See `results/ml_eval.md`.
+- **Tier 3 — LLM analyst** (`controlplane/shieldwall/analyst.py`): investigates residual anomalies and proposes one rule, which the controller validates and installs in dry-run. Works offline; a real API key swaps in.
+
+The cascade lives in `controlplane/shieldwall/cascade.py` and is wired into both the simulator engine and the real-kernel live loop.
+
+**Live Minecraft test:** `results/live_minecraft.md` + the `mc-demo/` harness. Quick start in `docs/DEMO_RUNBOOK.md`.
+
+```bash
+pip install -e . scikit-learn joblib
+python -m shieldwall.ml_train     # trains results/ml_model.joblib
+pytest -q                         # 26 tests
+```

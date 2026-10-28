@@ -4,7 +4,8 @@ from __future__ import annotations
 import threading
 from collections import OrderedDict, deque
 
-from .classifier import Classification, Classifier
+from .cascade import CascadeClassifier
+from .classifier import Classification
 from .detectors import Detector, DetectorConfig
 from .features import Featurizer
 from .llm import backend_label, explain_incident, template_explanation
@@ -59,7 +60,7 @@ class Engine:
         self.dp = SimDataPlane(self.sim, self.mit_cfg.allowlist)
         self.featurizer = Featurizer()
         self.detector = Detector(det_cfg)
-        self.classifier = Classifier()
+        self.classifier = CascadeClassifier()
         self.controller = MitigationController(self.mit_cfg, link_bps=self.sim.cfg.link_bps)
         self.store = EventStore(store_path)
         self.explain_async = explain_async
@@ -111,6 +112,11 @@ class Engine:
                 inc["profile_pps"] = f.pps
                 inc["profile"] = profile(f, window.samples)
                 self.attack_sample = list(window.samples)
+
+            # Tier 3: a genuine anomaly no tier could name -> the LLM analyst investigates (once).
+            if c is not None and getattr(c, "needs_llm", False) and inc is not None and not inc.get("investigated"):
+                inc["investigated"] = True
+                self._investigate(inc, c)
 
             # Real servers grow: a surge confirmed as legitimate for long enough becomes the new normal.
             self._benign = self._benign + 1 if c and c.kind == "legit_surge" else 0
@@ -262,6 +268,20 @@ class Engine:
             self.store.update_incident(inc["id"], explanation=text)
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _investigate(self, inc: dict, c) -> None:
+        """Tier 3 analyst runs off the hot path; accepted rules install in dry-run only."""
+        def work():
+            try:
+                from .analyst import investigate
+                investigate(self, evidence=list(c.evidence), profile=inc.get("profile", {}))
+            except Exception:
+                pass
+
+        if self.explain_async:
+            threading.Thread(target=work, daemon=True).start()
+        else:
+            work()
 
     # -- dashboard view ------------------------------------------------------
     def snapshot(self) -> dict:

@@ -1,0 +1,346 @@
+{
+  "summary": {
+    "n_train": 1952,
+    "n_test": 488,
+    "classes": [
+      "benign",
+      "cldap_amp",
+      "dns_amp",
+      "legit_surge",
+      "memcached_amp",
+      "ntp_amp",
+      "single_source_flood",
+      "ssdp_amp",
+      "syn_flood",
+      "synack_reflection",
+      "udp_flood"
+    ],
+    "ml_macro_f1": 1.0,
+    "ml_accuracy": 1.0,
+    "ml_malicious_accuracy": 1.0,
+    "fp_malicious_accuracy": 0.9098360655737705,
+    "ml_latency_us": 44025.425608615515,
+    "fp_latency_us": 31.7929815533627,
+    "per_family": {
+      "benign": {
+        "n": 100,
+        "ml_fam": 100,
+        "fp_fam": 0,
+        "ml_mal": 100,
+        "fp_mal": 100
+      },
+      "legit_surge": {
+        "n": 64,
+        "ml_fam": 64,
+        "fp_fam": 15,
+        "ml_mal": 64,
+        "fp_mal": 64
+      },
+      "cldap_amp": {
+        "n": 36,
+        "ml_fam": 36,
+        "fp_fam": 36,
+        "ml_mal": 36,
+        "fp_mal": 36
+      },
+      "dns_amp": {
+        "n": 36,
+        "ml_fam": 36,
+        "fp_fam": 36,
+        "ml_mal": 36,
+        "fp_mal": 36
+      },
+      "ntp_amp": {
+        "n": 36,
+        "ml_fam": 36,
+        "fp_fam": 36,
+        "ml_mal": 36,
+        "fp_mal": 36
+      },
+      "memcached_amp": {
+        "n": 36,
+        "ml_fam": 36,
+        "fp_fam": 36,
+        "ml_mal": 36,
+        "fp_mal": 36
+      },
+      "ssdp_amp": {
+        "n": 36,
+        "ml_fam": 36,
+        "fp_fam": 36,
+        "ml_mal": 36,
+        "fp_mal": 36
+      },
+      "syn_flood": {
+        "n": 36,
+        "ml_fam": 36,
+        "fp_fam": 36,
+        "ml_mal": 36,
+        "fp_mal": 36
+      },
+      "synack_reflection": {
+        "n": 36,
+        "ml_fam": 36,
+        "fp_fam": 0,
+        "ml_mal": 36,
+        "fp_mal": 0
+      },
+      "udp_flood": {
+        "n": 36,
+        "ml_fam": 36,
+        "fp_fam": 28,
+        "ml_mal": 36,
+        "fp_mal": 28
+      },
+      "single_source_flood": {
+        "n": 36,
+        "ml_fam": 36,
+        "fp_fam": 36,
+        "ml_mal": 36,
+        "fp_mal": 36
+      }
+    },
+    "feature_importance": null
+  },
+  "report": {
+    "benign": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 100.0
+    },
+    "cldap_amp": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 36.0
+    },
+    "dns_amp": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 36.0
+    },
+    "legit_surge": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 64.0
+    },
+    "memcached_amp": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 36.0
+    },
+    "ntp_amp": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 36.0
+    },
+    "single_source_flood": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 36.0
+    },
+    "ssdp_amp": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 36.0
+    },
+    "syn_flood": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 36.0
+    },
+    "synack_reflection": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 36.0
+    },
+    "udp_flood": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 36.0
+    },
+    "accuracy": 1.0,
+    "macro avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 488.0
+    },
+    "weighted avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 488.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "benign",
+      "cldap_amp",
+      "dns_amp",
+      "legit_surge",
+      "memcached_amp",
+      "ntp_amp",
+      "single_source_flood",
+      "ssdp_amp",
+      "syn_flood",
+      "synack_reflection",
+      "udp_flood"
+    ],
+    "matrix": [
+      [
+        100,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        36,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        36,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        64,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        36,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        36,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        36,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        36,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        36,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        36,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        36
+      ]
+    ]
+  }
+}

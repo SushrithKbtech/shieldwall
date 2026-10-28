@@ -24,6 +24,8 @@ class Classification:
     malicious: bool
     confidence: float
     evidence: list[str]
+    source: str = "fingerprint"   # which tier decided: fingerprint | ml | residual
+    needs_llm: bool = False       # a genuine anomaly no tier could name -> Tier 3 analyst
 
 
 class Classifier:

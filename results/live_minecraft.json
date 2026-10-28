@@ -1,0 +1,896 @@
+{
+  "dryrun": {
+    "mode": "dryrun",
+    "use_tc": true,
+    "attack": "4,473,976 packets from 4 workers",
+    "spawned": true,
+    "disconnected_during_attack": false,
+    "ping_ok_during_attack": "14/14",
+    "ping_ms_median": 12,
+    "attack_classified_as": "CLDAP amplification flood",
+    "classified_by_tier": "fingerprint",
+    "kernel_attack_packets_dropped": 0,
+    "rules_installed": [
+      "DROP UDP src port 389"
+    ],
+    "ticks": [
+      {
+        "phase": "warmup",
+        "pps": 26,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 26,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 18,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 44,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 53,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 62,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 11,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 73,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 82,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 10,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 92,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 10,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 102,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 10,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 112,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 121,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": -0.9,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 130,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 10,
+        "z": -0.7,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 140,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 11,
+        "z": -0.5,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 151,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": -0.8,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 160,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": -0.7,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 169,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": -0.7,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 178,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 12,
+        "z": -0.2,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 190,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 10,
+        "z": -0.5,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 200,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "attack",
+        "pps": 286438,
+        "z": 46822.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 286638,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "attack",
+        "pps": 336180,
+        "z": 54953.3,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 622818,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 309154,
+        "z": 50535.4,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 931972,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 305743,
+        "z": 49977.8,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 1237715,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 320873,
+        "z": 52451.1,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 1558588,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 315038,
+        "z": 51497.2,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 1873626,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 332663,
+        "z": 54378.4,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 2206289,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 276726,
+        "z": 45234.4,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 2483015,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 385940,
+        "z": 63087.6,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 2868955,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 375222,
+        "z": 61335.5,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 3244177,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 303122,
+        "z": 49549.3,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 3547299,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 356332,
+        "z": 58247.6,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 3903631,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 349829,
+        "z": 57184.5,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 4253460,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 220861,
+        "z": 36102.1,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 4474321,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "tail",
+        "pps": 11,
+        "z": -0.3,
+        "anom": true,
+        "cls": "legitimate traffic surge",
+        "src": "fingerprint",
+        "k_pkts": 4474332,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "tail",
+        "pps": 9,
+        "z": -0.6,
+        "anom": true,
+        "cls": "legitimate traffic surge",
+        "src": "fingerprint",
+        "k_pkts": 4474341,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "tail",
+        "pps": 10,
+        "z": -0.4,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 4474351,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "tail",
+        "pps": 10,
+        "z": -0.4,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 4474361,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      }
+    ]
+  },
+  "enforce": {
+    "mode": "enforce",
+    "use_tc": true,
+    "attack": "5,916,368 packets from 4 workers",
+    "spawned": true,
+    "disconnected_during_attack": false,
+    "ping_ok_during_attack": "14/14",
+    "ping_ms_median": 10,
+    "attack_classified_as": "CLDAP amplification flood",
+    "classified_by_tier": "fingerprint",
+    "kernel_attack_packets_dropped": 5283933,
+    "rules_installed": [
+      "DROP UDP src port 389"
+    ],
+    "ticks": [
+      {
+        "phase": "warmup",
+        "pps": 16,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 16,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 44,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 60,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 69,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 78,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 11,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 89,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 98,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 10,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 108,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 117,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 11,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 128,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": 0.0,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 137,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": -0.6,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 146,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 10,
+        "z": -0.5,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 156,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 11,
+        "z": -0.3,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 167,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": -0.6,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 176,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": -0.5,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 185,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": -0.5,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 194,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 12,
+        "z": 0.1,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 206,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "warmup",
+        "pps": 9,
+        "z": -0.5,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 215,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "attack",
+        "pps": 315688,
+        "z": 61418.4,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 315903,
+        "k_dropped": 0,
+        "rules": []
+      },
+      {
+        "phase": "attack",
+        "pps": 307470,
+        "z": 59819.5,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 623373,
+        "k_dropped": 0,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 346782,
+        "z": 67468.1,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 970155,
+        "k_dropped": 337476,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 467480,
+        "z": 90951.2,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 1437635,
+        "k_dropped": 804946,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 438742,
+        "z": 85359.9,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 1876377,
+        "k_dropped": 1243679,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 492717,
+        "z": 95861.4,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 2369094,
+        "k_dropped": 1736387,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 444123,
+        "z": 86406.9,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 2813217,
+        "k_dropped": 2180499,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 495047,
+        "z": 96314.7,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 3308264,
+        "k_dropped": 2675537,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 428956,
+        "z": 83456.0,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 3737220,
+        "k_dropped": 3104483,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 481156,
+        "z": 93612.1,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 4218376,
+        "k_dropped": 3585630,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 503832,
+        "z": 98023.9,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 4722208,
+        "k_dropped": 4089444,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 496526,
+        "z": 96602.5,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 5218734,
+        "k_dropped": 4585961,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 417180,
+        "z": 81164.8,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 5635914,
+        "k_dropped": 5003131,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "attack",
+        "pps": 280811,
+        "z": 54632.7,
+        "anom": true,
+        "cls": "CLDAP amplification flood",
+        "src": "fingerprint",
+        "k_pkts": 5916725,
+        "k_dropped": 5283933,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "tail",
+        "pps": 11,
+        "z": -0.1,
+        "anom": true,
+        "cls": "legitimate traffic surge",
+        "src": "fingerprint",
+        "k_pkts": 5916736,
+        "k_dropped": 5283933,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "tail",
+        "pps": 9,
+        "z": -0.5,
+        "anom": true,
+        "cls": "legitimate traffic surge",
+        "src": "fingerprint",
+        "k_pkts": 5916745,
+        "k_dropped": 5283933,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "tail",
+        "pps": 9,
+        "z": -0.5,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 5916754,
+        "k_dropped": 5283933,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      },
+      {
+        "phase": "tail",
+        "pps": 12,
+        "z": 0.2,
+        "anom": false,
+        "cls": null,
+        "src": null,
+        "k_pkts": 5916766,
+        "k_dropped": 5283933,
+        "rules": [
+          "DROP UDP src port 389"
+        ]
+      }
+    ]
+  }
+}
